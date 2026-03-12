@@ -1,0 +1,23 @@
+=== USERS ===
+[
+  {
+    "columns": [
+      "id",
+      "nome",
+      "celular"
+    ],
+    "values": [
+      [
+        1,
+        "Guilherme Marques",
+        "3597786623"
+      ]
+    ]
+  }
+]
+
+=== PLANEJAMENTO ===
+[]
+
+=== VISITAS ===
+[]

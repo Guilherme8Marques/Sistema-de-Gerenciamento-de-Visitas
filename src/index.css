@@ -1,0 +1,292 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Roboto+Mono:wght@500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 120 8% 95%;
+    --foreground: 25 20% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 25 20% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 20% 15%;
+
+    --primary: 152 45% 18%;
+    --primary-foreground: 40 30% 95%;
+
+    --secondary: 152 30% 12%;
+    --secondary-foreground: 40 30% 95%;
+
+    --muted: 120 8% 90%;
+    --muted-foreground: 25 10% 45%;
+
+    --accent: 42 55% 40%;
+    /* Dourado mais sóbrio */
+    --accent-foreground: 40 30% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 120 10% 80%;
+    --input: 120 10% 85%;
+    --ring: 152 45% 28%;
+
+    --radius: 1rem;
+
+    --glass-bg: 0 0% 100% / 0.15;
+    --glass-border: 0 0% 100% / 0.3;
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.18);
+    --glass-blur: 16px;
+
+    --gold: 42 70% 50%;
+    --gold-light: 42 80% 65%;
+    --brown: 25 40% 30%;
+    --brown-light: 25 30% 50%;
+    --green-dark: 152 50% 20%;
+    --green-light: 152 40% 45%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Lovable Calendar Status capsule colors */
+    --status-pending-bg: 45 88% 55%;
+    --status-pending-text: 0 0% 11%;
+    --status-done-bg: 145 63% 49%;
+    --status-done-text: 0 0% 100%;
+    --status-today-bg: 0 0% 100%;
+    --status-today-text: 0 0% 11%;
+
+    /* Lovable Calendar day highlights */
+    --day-pending: 45 88% 55%;
+    --day-done: 145 63% 49%;
+    --day-today-ring: 0 0% 85%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Nunito', sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background: hsla(var(--glass-bg));
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid hsla(var(--glass-border));
+    box-shadow: var(--glass-shadow);
+  }
+
+  .glass-card-strong {
+    background: hsla(152, 30%, 18%, 0.55);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border: 1px solid hsla(0, 0%, 100%, 0.25);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .glass-input {
+    background: hsla(0, 0%, 100%, 0.35);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid hsla(0, 0%, 100%, 0.5);
+  }
+
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--green-light)));
+  }
+
+  .gradient-gold {
+    background: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--gold-light)));
+  }
+
+  .gradient-bg {
+    background: linear-gradient(180deg, hsla(152, 45%, 20%, 0.85) 0%, hsla(25, 40%, 20%, 0.75) 100%);
+  }
+
+  .text-gold {
+    color: hsl(var(--gold));
+  }
+}
+
+img {
+  image-rendering: auto;
+  image-rendering: -webkit-optimize-contrast;
+  -webkit-font-smoothing: antialiased;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Extra glass utilities reused pelo app atual */
+@layer utilities {
+  .glass-header {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px) saturate(200%);
+    -webkit-backdrop-filter: blur(20px) saturate(200%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 1px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .glass-fab {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  /* Glass panel (from Lovable Calendar) */
+  .glass-panel {
+    background: hsla(150, 10%, 20%, 0.55);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid hsla(150, 10%, 30%, 0.3);
+    border-radius: var(--radius);
+  }
+
+  /* Status capsules - the key improvement */
+  .status-capsule {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.025em;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.25s ease;
+    white-space: nowrap;
+  }
+
+  .status-capsule--pending {
+    background: hsla(var(--status-pending-bg) / 0.6);
+    color: hsl(var(--status-pending-text));
+  }
+
+  .status-capsule--done {
+    background: hsla(var(--status-done-bg) / 0.6);
+    color: hsl(var(--status-done-text));
+  }
+
+  .status-capsule--today {
+    background: hsla(var(--status-today-bg) / 0.2);
+    color: hsl(var(--status-today-text));
+  }
+
+  /* Hover signature moment */
+  .status-capsule--done .status-check {
+    max-width: 0;
+    opacity: 0;
+    transition: all 0.3s ease;
+    overflow: hidden;
+  }
+
+  .group:hover .status-capsule--done .status-check {
+    max-width: 20px;
+    opacity: 1;
+  }
+
+  .group:hover .status-capsule--done {
+    background: hsla(var(--status-done-bg) / 1);
+  }
+
+  .group:hover .status-capsule--pending {
+    background: hsla(var(--status-pending-bg) / 1);
+  }
+}
+
+/* ===== Background blobs (mantidos, agora com nova paleta) ===== */
+.bg-blobs {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bg-blobs::before,
+.bg-blobs::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  animation: blob-float 20s ease-in-out infinite alternate;
+}
+
+.bg-blobs::before {
+  width: 400px;
+  height: 400px;
+  background: hsl(var(--green-light));
+  top: -10%;
+  right: -10%;
+}
+
+.bg-blobs::after {
+  width: 350px;
+  height: 350px;
+  background: hsl(var(--gold-light));
+  bottom: -10%;
+  left: -10%;
+  animation-delay: -5s;
+}
+
+@keyframes blob-float {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -20px) scale(1.05);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+
+  100% {
+    transform: translate(10px, -10px) scale(1);
+  }
+}
+
+/* Smooth page transitions */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
