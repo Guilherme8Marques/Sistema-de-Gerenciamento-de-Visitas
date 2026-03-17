@@ -23,7 +23,7 @@ RUN npm install --omit=dev
 # Copiar arquivos necessários
 COPY --from=frontend-builder /app/dist ./dist
 COPY --from=frontend-builder /app/server ./server
-COPY --from=frontend-builder /app/dados ./dados
+RUN mkdir -p dados
 
 EXPOSE 5000
 
