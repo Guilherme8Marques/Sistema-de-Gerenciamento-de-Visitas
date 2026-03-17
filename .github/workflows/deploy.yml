@@ -23,8 +23,22 @@ jobs:
             if [ ! -d "Sistema-de-Gerenciamento-de-Visitas" ]; then
               git clone https://github.com/Guilherme8Marques/Sistema-de-Gerenciamento-de-Visitas.git
             fi
+          script: |
+            # Garante que estamos na home e limpa se não for git
+            if [ -d "Sistema-de-Gerenciamento-de-Visitas" ] && [ ! -d "Sistema-de-Gerenciamento-de-Visitas/.git" ]; then
+              rm -rf Sistema-de-Gerenciamento-de-Visitas
+            fi
+            
+            if [ ! -d "Sistema-de-Gerenciamento-de-Visitas" ]; then
+              git clone https://github.com/Guilherme8Marques/Sistema-de-Gerenciamento-de-Visitas.git
+            fi
+            
             cd Sistema-de-Gerenciamento-de-Visitas
             git pull origin main
-            sudo docker compose up -d --build
+            
+            # Tenta rodar sem sudo primeiro (assumindo que o user está no grupo docker)
+            # Se falhar, tenta com sudo -n (não interativo)
+            docker compose up -d --build || sudo -n docker compose up -d --build
+            
             # Limpeza
-            sudo docker image prune -f
+            docker image prune -f || sudo -n docker image prune -f
