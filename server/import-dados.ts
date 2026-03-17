@@ -23,8 +23,8 @@ import { initDatabase, getDb, saveDatabase } from "./database.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Caminho do CSV
-const CSV_PATH = path.join(__dirname, "..", "dados", "report1772022515510.csv");
+// Pasta de dados
+const DADOS_DIR = path.join(__dirname, "..", "dados");
 
 const SERVER_PORT = 5000;
 
@@ -61,6 +61,13 @@ function checkServerRunning(port: number): Promise<boolean> {
     });
 }
 
+function findFile(directory: string, pattern: RegExp): string | null {
+    if (!fs.existsSync(directory)) return null;
+    const files = fs.readdirSync(directory);
+    const found = files.find(f => pattern.test(f));
+    return found ? path.join(directory, found) : null;
+}
+
 async function importar() {
     // Verificar se o servidor está rodando
     const serverRunning = await checkServerRunning(SERVER_PORT);
@@ -81,8 +88,19 @@ async function importar() {
 
     console.log("📥 Iniciando importação de dados reais...\n");
 
+    // Tentar encontrar o CSV (padrão report*.csv ou qualquer .csv)
+    let csvPath = findFile(DADOS_DIR, /^report.*\.csv$/i) || findFile(DADOS_DIR, /\.csv$/i);
+
+    if (!csvPath) {
+        console.error("❌ ERRO: Nenhum arquivo .csv encontrado na pasta 'dados/'");
+        console.error("   Certifique-se de que você fez o upload do CSV exportado para a pasta 'dados/'.");
+        process.exit(1);
+    }
+
+    console.log(`📄 Usando CSV: ${path.basename(csvPath)}`);
+
     // Ler CSV com encoding UTF-8
-    const csvText = fs.readFileSync(CSV_PATH, "utf-8");
+    const csvText = fs.readFileSync(csvPath, "utf-8");
 
     // Parse CSV (separador ;)
     const records: CsvRow[] = parse(csvText, {
@@ -95,17 +113,19 @@ async function importar() {
 
     console.log(`📊 ${records.length} linhas lidas do CSV\n`);
 
-    // Ler XLSX de usuários (TDMs/ADMs)
-    const usuariosPath = path.join(__dirname, "..", "dados", "RELAÇÃO COMPLETA TDMs e ADMs.xlsx");
+    // Tentar encontrar o XLSX de usuários
+    let usuariosPath = findFile(DADOS_DIR, /RELAÇÃO.*\.xlsx$/i) || findFile(DADOS_DIR, /\.xlsx$/i);
+    
     let usuariosRecords: any[] = [];
-    if (fs.existsSync(usuariosPath)) {
+    if (usuariosPath && fs.existsSync(usuariosPath)) {
         const wb = xlsx.readFile(usuariosPath);
         const wsName = wb.SheetNames[0];
         const ws = wb.Sheets[wsName];
         usuariosRecords = xlsx.utils.sheet_to_json(ws);
+        console.log(`📄 Usando Planilha: ${path.basename(usuariosPath)}`);
         console.log(`📊 ${usuariosRecords.length} colaboradores lidos da planilha\n`);
     } else {
-        console.warn(`⚠️ Arquivo de colaboradores não encontrado: ${usuariosPath}\n`);
+        console.warn(`⚠️ Arquivo de colaboradores (.xlsx) não encontrado na pasta 'dados/'.\n`);
     }
 
     // Inicializar banco
