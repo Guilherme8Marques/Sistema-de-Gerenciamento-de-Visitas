@@ -19,11 +19,6 @@ jobs:
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
           script: |
-            # Verifica se a pasta existe, senão clona
-            if [ ! -d "Sistema-de-Gerenciamento-de-Visitas" ]; then
-              git clone https://github.com/Guilherme8Marques/Sistema-de-Gerenciamento-de-Visitas.git
-            fi
-          script: |
             # Garante que estamos na home e limpa se não for git
             if [ -d "Sistema-de-Gerenciamento-de-Visitas" ] && [ ! -d "Sistema-de-Gerenciamento-de-Visitas/.git" ]; then
               rm -rf Sistema-de-Gerenciamento-de-Visitas
