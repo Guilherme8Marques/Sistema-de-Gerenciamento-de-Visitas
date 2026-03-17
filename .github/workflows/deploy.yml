@@ -1,0 +1,26 @@
+name: Deploy to GCP
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.GCP_HOST }}
+          username: ${{ secrets.GCP_USERNAME }}
+          key: ${{ secrets.GCP_SSH_KEY }}
+          script: |
+            cd Sistema-de-Gerenciamento-de-Visitas
+            git pull origin main
+            sudo docker compose up -d --build
+            # Opcional: Limpar imagens antigas para economizar espaço no disco de 30GB
+            sudo docker image prune -f
