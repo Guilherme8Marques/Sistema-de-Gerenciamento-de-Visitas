@@ -6,10 +6,8 @@ services:
       - NODE_ENV=production
       - PORT=5000
     volumes:
-      # Bind mounts para persistência no Host da Oracle
-      - ./server/database.db:/app/server/database.db
-      - ./server/db_audit.log:/app/server/db_audit.log
-      - ./server/database.pid:/app/server/database.pid
+      # Montar a pasta server inteira para evitar erros de criação de diretório (EISDIR)
+      - ./server:/app/server
       - ./dados:/app/dados
     # Porta 5000 não exposta externamente (segurança)
 
