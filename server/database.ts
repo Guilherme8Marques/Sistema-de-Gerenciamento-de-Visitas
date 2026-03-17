@@ -35,13 +35,17 @@ import { execSync } from "child_process";
  * Se dois processos tentarem rodar, o segundo tentará "evacuar" o primeiro ou abortará.
  */
 function claimDatabaseOwnership() {
+  const isWindows = process.platform === "win32";
+
   if (fs.existsSync(LOCK_PATH)) {
     const existingPid = parseInt(fs.readFileSync(LOCK_PATH, "utf-8"));
     try {
       // Verifica se o processo ainda está vivo
       process.kill(existingPid, 0);
 
-      const isWindows = process.platform === "win32";
+      // Se for o mesmo PID do processo atual, não há conflito
+      if (existingPid === process.pid) return;
+
       auditLog(`⚠️ CONFLITO DETECTADO: Processo ${existingPid} ainda ativo em ${process.platform}.`);
       console.log(`\n[AVISO] Detectado processo antigo (PID ${existingPid}) ainda rodando.`);
 
@@ -58,11 +62,11 @@ function claimDatabaseOwnership() {
           process.exit(1);
         }
       } else {
-        // No Linux/Docker, apenas avisamos e encerramos se não pudermos assumir, 
-        // mas geralmente o Docker isola os processos.
-        console.error(`[ERRO] O banco de dados já está sendo usado pelo PID ${existingPid}.`);
-        console.error("No Linux, encerre o container antigo antes de iniciar um novo.");
-        process.exit(1);
+        // No Linux/Docker, os PIDs são frequentemente reciclados (ex: PID 1).
+        // Se chegamos aqui, o PID existe mas pode ser outro processo no container.
+        // Como o Docker garante isolamento, vamos apenas avisar e sobrescrever o lock.
+        console.log(`[AVISO] Ignorando trava do PID ${existingPid} (Ambiente Linux/Docker).`);
+        auditLog(`♻️ Sobrescrevendo lock do PID ${existingPid} (Linux)`);
       }
     } catch (e) {
       // Processo dono do lock morreu, podemos assumir
