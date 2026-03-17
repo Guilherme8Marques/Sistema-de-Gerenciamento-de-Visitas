@@ -19,8 +19,12 @@ jobs:
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
           script: |
+            # Verifica se a pasta existe, senão clona
+            if [ ! -d "Sistema-de-Gerenciamento-de-Visitas" ]; then
+              git clone https://github.com/Guilherme8Marques/Sistema-de-Gerenciamento-de-Visitas.git
+            fi
             cd Sistema-de-Gerenciamento-de-Visitas
             git pull origin main
             sudo docker compose up -d --build
-            # Opcional: Limpar imagens antigas para economizar espaço no disco de 30GB
+            # Limpeza
             sudo docker image prune -f
