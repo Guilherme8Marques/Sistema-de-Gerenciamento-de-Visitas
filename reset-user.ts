@@ -1,1 +1,0 @@
-﻿import { initDatabase, getDb, saveDatabase } from './server/database.js'; async function run() { await initDatabase(); const db = getDb(); db.run(\DELETE FROM users WHERE celular = '35991823126'\); saveDatabase(); console.log('User deleted'); } run();

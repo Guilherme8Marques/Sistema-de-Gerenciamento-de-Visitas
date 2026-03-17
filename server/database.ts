@@ -38,24 +38,30 @@ function claimDatabaseOwnership() {
   if (fs.existsSync(LOCK_PATH)) {
     const existingPid = parseInt(fs.readFileSync(LOCK_PATH, "utf-8"));
     try {
-      // Verifica se o processo ainda está vivo no Windows
+      // Verifica se o processo ainda está vivo
       process.kill(existingPid, 0);
 
-      // AUTO-EVICÇÃO: Se está vivo, tentamos matar para que o novo servidor assume o controle
-      auditLog(`⚠️ CONFLITO DETECTADO: Tentando matar processo fantasma (PID ${existingPid}) para assumir o banco.`);
+      const isWindows = process.platform === "win32";
+      auditLog(`⚠️ CONFLITO DETECTADO: Processo ${existingPid} ainda ativo em ${process.platform}.`);
       console.log(`\n[AVISO] Detectado processo antigo (PID ${existingPid}) ainda rodando.`);
-      console.log("Tentando encerrá-lo automaticamente para atualizar o sistema...");
 
-      try {
-        execSync(`taskkill /F /PID ${existingPid} /T`, { stdio: 'ignore' });
-        auditLog(`✅ AUTO-EVICÇÃO SUCEDIDA: Processo ${existingPid} encerrado.`);
-        console.log("Processo antigo encerrado com sucesso.\n");
-        // Aguarda um pouco para o Windows liberar os arquivos
-        execSync("timeout /t 2", { stdio: 'ignore' });
-      } catch (killError) {
-        auditLog(`❌ AUTO-EVICÇÃO FALHOU: Sem permissão para matar o PID ${existingPid}.`);
-        console.error(`\n[ERRO] Não foi possível encerrar o processo antigo (Acesso Negado).`);
-        console.error("Por favor, reinicie o computador ou mate o processo manualmente no Gerenciador de Tarefas.\n");
+      if (isWindows) {
+        console.log("Tentando encerrá-lo automaticamente...");
+        try {
+          execSync(`taskkill /F /PID ${existingPid} /T`, { stdio: 'ignore' });
+          auditLog(`✅ AUTO-EVICÇÃO SUCEDIDA: Processo ${existingPid} encerrado.`);
+          console.log("Processo antigo encerrado com sucesso.\n");
+          execSync("timeout /t 2", { stdio: 'ignore' });
+        } catch (killError) {
+          auditLog(`❌ AUTO-EVICÇÃO FALHOU: Sem permissão para matar o PID ${existingPid}.`);
+          console.error(`\n[ERRO] Não foi possível encerrar o processo antigo (Acesso Negado).`);
+          process.exit(1);
+        }
+      } else {
+        // No Linux/Docker, apenas avisamos e encerramos se não pudermos assumir, 
+        // mas geralmente o Docker isola os processos.
+        console.error(`[ERRO] O banco de dados já está sendo usado pelo PID ${existingPid}.`);
+        console.error("No Linux, encerre o container antigo antes de iniciar um novo.");
         process.exit(1);
       }
     } catch (e) {
