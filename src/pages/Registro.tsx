@@ -557,6 +557,7 @@ const Registro = () => {
                               onChange={(e) =>
                                 updateNegociacao(visita.id, "viaRosa", e.target.value)
                               }
+                              inputMode="numeric"
                               className="text-base"
                               disabled={visita.registrado}
                             />

@@ -3,7 +3,7 @@ import coffeeBg from "@/assets/coffee-bg.jpg";
 
 const Layout = () => {
     return (
-        <div className="relative min-h-screen flex flex-col overflow-hidden">
+        <div className="relative min-h-screen flex flex-col overflow-x-hidden">
             {/* Stable Background - Moved here to prevent flickering */}
             <img
                 src={coffeeBg}

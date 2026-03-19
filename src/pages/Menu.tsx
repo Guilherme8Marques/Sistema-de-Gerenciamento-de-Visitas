@@ -122,11 +122,13 @@ const Menu = () => {
               className="group w-full glass-card-strong rounded-2xl p-5 flex items-center gap-4 text-left shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all animate-fade-in-up"
               style={{ animationDelay: `${0.1 + index * 0.1}s` }}
             >
-              <img
-                src={item.iconSrc}
-                alt={item.title}
-                className="w-20 h-20 object-contain drop-shadow-xl flex-shrink-0 ml-[-8px] transition-transform duration-300 group-hover:scale-110"
-              />
+              <div className="w-16 h-16 flex-shrink-0 flex items-center justify-center overflow-hidden rounded-xl">
+                <img
+                  src={item.iconSrc}
+                  alt={item.title}
+                  className="w-14 h-14 object-contain drop-shadow-xl transition-transform duration-300 group-hover:scale-110"
+                />
+              </div>
               <div>
                 <h3 className="font-display font-semibold text-primary-foreground text-base">
                   {item.title}
