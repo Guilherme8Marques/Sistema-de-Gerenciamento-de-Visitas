@@ -580,6 +580,8 @@ const Registro = () => {
                                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 font-semibold pointer-events-none text-base">R$</span>
                                 )}
                                 <Input
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
                                   placeholder={visita.negociacao.tipoMoeda === "R$" ? "0,00" : "Quantidade (Sacas)"}
                                   value={visita.negociacao.valor}
                                   onChange={(e) =>
