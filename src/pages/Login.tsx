@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Smartphone, Coffee, Leaf, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Smartphone, Coffee, Leaf, Loader2, X, KeyRound, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import coffeeBg from "@/assets/coffee-bg.jpg";
 import principalLogo from "@/assets/Principal.png";
 
@@ -13,6 +14,16 @@ const Login = () => {
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
+
+  // Esqueci minha senha state
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetStep, setResetStep] = useState<1 | 2>(1);
+  const [resetCelular, setResetCelular] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     const savedCelular = localStorage.getItem("saved_celular");
@@ -83,6 +94,68 @@ const Login = () => {
       setErro("Erro interno de rota ou servidor offline.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleValidateResetCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    const rawCelular = resetCelular.replace(/\D/g, "");
+
+    if (rawCelular.length < 10) return setResetError("Celular inválido.");
+    if (resetCode.length !== 6) return setResetError("O código deve ter 6 dígitos.");
+
+    setResetLoading(true);
+    try {
+      const resp = await fetch("/api/auth/validate-reset-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ celular: rawCelular, code: resetCode }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error || "Erro ao validar código.");
+      }
+      setResetStep(2);
+      setResetError("");
+    } catch (error: any) {
+      setResetError(error.message);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+
+    if (newPassword !== confirmPassword) {
+      return setResetError("As senhas não coincidem.");
+    }
+
+    setResetLoading(true);
+    try {
+      const resp = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ celular: resetCelular.replace(/\D/g, ""), code: resetCode, novaSenha: newPassword }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error || "Erro ao redefinir senha.");
+      }
+
+      toast.success("Senha atualizada com sucesso! Faça o login.");
+      setIsResetModalOpen(false);
+      setResetStep(1);
+      setResetCelular("");
+      setResetCode("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      setResetError(error.message);
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -208,7 +281,11 @@ const Login = () => {
 
         {/* Forgot password */}
         <div className="text-center mt-4">
-          <button className="text-sm text-gold font-semibold hover:underline transition-colors">
+          <button 
+            type="button" 
+            onClick={() => setIsResetModalOpen(true)}
+            className="text-sm text-gold font-semibold hover:underline transition-colors"
+          >
             Esqueci minha senha
           </button>
         </div>
@@ -230,6 +307,124 @@ const Login = () => {
           </p>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card-strong w-full max-w-sm rounded-3xl p-6 shadow-2xl relative overflow-hidden border border-white/20 animate-scale-in">
+            <button
+              onClick={() => {
+                setIsResetModalOpen(false);
+                setResetStep(1);
+                setResetError("");
+              }}
+              className="absolute right-4 top-4 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/20 transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex flex-col items-center mb-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center mb-3">
+                {resetStep === 1 ? <KeyRound className="w-6 h-6 text-accent" /> : <ShieldCheck className="w-6 h-6 text-green-400" />}
+              </div>
+              <h2 className="text-xl font-bold text-white">Recuperação de Senha</h2>
+              {resetStep === 1 ? (
+                <p className="text-xs text-white/70 mt-2">
+                  Solicite o <strong className="text-accent underline">Código de 6 dígitos</strong> para o seu Administrador e insira abaixo.
+                </p>
+              ) : (
+                <p className="text-xs text-white/70 mt-2">
+                  Código validado! Crie sua nova senha de acesso.
+                </p>
+              )}
+            </div>
+
+            {resetStep === 1 ? (
+              <form onSubmit={handleValidateResetCode} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-white/80 mb-1">Seu Celular</label>
+                  <input
+                    type="tel"
+                    placeholder="(00) 00000-0000"
+                    value={resetCelular}
+                    onChange={(e) => {
+                      setResetCelular(formatPhone(e.target.value));
+                      setResetError("");
+                    }}
+                    className="w-full glass-input rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/40"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-white/80 mb-1">Código PIN (6 dígitos)</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={resetCode}
+                    onChange={(e) => {
+                      setResetCode(e.target.value.replace(/\D/g, ''));
+                      setResetError("");
+                    }}
+                    className="w-full glass-input rounded-xl px-4 py-3 text-center tracking-[0.5em] font-mono text-lg font-bold text-white placeholder:text-white/20"
+                  />
+                </div>
+                
+                {resetError && <div className="text-xs text-destructive bg-destructive/10 p-2 rounded-lg text-center font-medium">{resetError}</div>}
+                
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full gradient-primary rounded-xl py-3 text-primary-foreground font-bold text-sm hover:scale-[1.02] transition-all disabled:opacity-50"
+                >
+                  {resetLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Validar Código"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleResetPassword} className="space-y-4 animate-fade-in">
+                <div>
+                  <label className="block text-xs font-semibold text-white/80 mb-1">Nova Senha</label>
+                  <input
+                    type="password"
+                    placeholder="Digite a nova senha"
+                    value={newPassword}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      setResetError("");
+                    }}
+                    className="w-full glass-input rounded-xl px-4 py-3 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-white/80 mb-1">Confirme a Nova Senha</label>
+                  <input
+                    type="password"
+                    placeholder="Repita a senha"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setResetError("");
+                    }}
+                    className="w-full glass-input rounded-xl px-4 py-3 text-sm text-white"
+                  />
+                </div>
+
+                {resetError && <div className="text-xs text-destructive bg-destructive/10 p-2 rounded-lg text-center font-medium">{resetError}</div>}
+                <div className="text-[10px] text-white/50 text-center px-2">
+                  A senha deve ter pelo menos 6 caracteres, 1 número e 1 caractere especial (!@#$%^&*).
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full bg-green-500 hover:bg-green-600 rounded-xl py-3 text-white font-bold text-sm hover:scale-[1.02] transition-all disabled:opacity-50"
+                >
+                  {resetLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Redefinir Senha"}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

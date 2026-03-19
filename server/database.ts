@@ -187,6 +187,8 @@ function createTables(): void {
       senha_hash TEXT NOT NULL,
       role TEXT DEFAULT 'consultor',
       device_fingerprint TEXT,
+      reset_code TEXT,
+      reset_expires DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -196,6 +198,9 @@ function createTables(): void {
   } catch {
     // Coluna já existe, ignorar
   }
+  
+  try { db.run("ALTER TABLE users ADD COLUMN reset_code TEXT"); } catch { }
+  try { db.run("ALTER TABLE users ADD COLUMN reset_expires DATETIME"); } catch { }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS filiais (

@@ -196,5 +196,170 @@ router.get("/me", authMiddleware, (req: Request, res: Response): void => {
         res.status(500).json({ error: "Erro interno do servidor" });
     }
 });
+/**
+ * POST /api/auth/generate-reset-code
+ * Apenas admins. Gera um PIN de 6 dígitos para recuperar a senha de um usuário.
+ */
+router.post("/generate-reset-code", authMiddleware, async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { userId } = req.body;
+        
+        const db = getDb();
+        const requestor = db.exec("SELECT role FROM users WHERE id = ?", [req.userId!]);
+        const role = requestor?.[0]?.values?.[0]?.[0] as string;
+        
+        if (role !== "Administrador") {
+            res.status(403).json({ error: "Apenas administradores podem gerar códigos de redefinição." });
+            return;
+        }
+
+        const userToReset = db.exec("SELECT id FROM users WHERE id = ?", [userId]);
+        if (userToReset.length === 0 || userToReset[0].values.length === 0) {
+            res.status(404).json({ error: "Usuário não encontrado." });
+            return;
+        }
+
+        const pin = Math.floor(100000 + Math.random() * 900000).toString(); // 6 dígitos
+        // Expirar em 15 minutos
+        const expires = new Date(Date.now() + 15 * 60000).toISOString();
+
+        db.run("UPDATE users SET reset_code = ?, reset_expires = ? WHERE id = ?", [pin, expires, userId]);
+        saveDatabase();
+
+        res.json({ message: "Código gerado com sucesso", code: pin });
+    } catch (error) {
+        console.error("Erro ao gerar PIN:", error);
+        res.status(500).json({ error: "Erro interno do servidor" });
+    }
+});
+
+/**
+ * POST /api/auth/validate-reset-code
+ * Verifica se o PIN informado para o celular é válido e não expirou.
+ */
+router.post("/validate-reset-code", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { celular, code } = req.body;
+        if (!celular || !code) {
+           res.status(400).json({ error: "Celular e código são obrigatórios." });
+           return;
+        }
+        
+        const celularClean = normalizeCelular(celular);
+
+        const db = getDb();
+        const result = db.exec("SELECT reset_code, reset_expires FROM users WHERE celular = ?", [celularClean]);
+
+        if (result.length === 0 || result[0].values.length === 0) {
+            res.status(404).json({ error: "Usuário não encontrado." });
+            return;
+        }
+
+        const row = result[0].values[0];
+        const dbCode = row[0] as string;
+        const dbExpires = row[1] as string;
+
+        if (!dbCode || dbCode !== code) {
+            res.status(400).json({ error: "Código inválido." });
+            return;
+        }
+
+        if (new Date() > new Date(dbExpires)) {
+            res.status(400).json({ error: "Código expirado. Solicite um novo ao administrador." });
+            return;
+        }
+
+        res.json({ message: "Código válido." });
+    } catch (error) {
+        console.error("Erro na validação do PIN:", error);
+        res.status(500).json({ error: "Erro interno do servidor" });
+    }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Define a nova senha usando o PIN validado.
+ */
+router.post("/reset-password", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { celular, code, novaSenha } = req.body;
+        const celularClean = normalizeCelular(celular);
+
+        if (!novaSenha || novaSenha.length < 6 || !/(?=.*[0-9])/.test(novaSenha) || !/(?=.*[!@#$%^&*])/.test(novaSenha)) {
+            res.status(400).json({ error: "A senha não cumpre os requisitos mínimos de segurança." });
+            return;
+        }
+
+        const db = getDb();
+        const result = db.exec("SELECT id, reset_code, reset_expires FROM users WHERE celular = ?", [celularClean]);
+
+        if (result.length === 0 || result[0].values.length === 0) {
+            res.status(404).json({ error: "Usuário não encontrado." });
+            return;
+        }
+
+        const row = result[0].values[0];
+        const id = row[0] as number;
+        const dbCode = row[1] as string;
+        const dbExpires = row[2] as string;
+
+        if (!dbCode || dbCode !== code) {
+            res.status(400).json({ error: "Código inválido." });
+            return;
+        }
+
+        if (new Date() > new Date(dbExpires)) {
+            res.status(400).json({ error: "Código expirado. Solicite um novo ao administrador." });
+            return;
+        }
+
+        const senha_hash = await bcrypt.hash(novaSenha, 10);
+
+        db.run("UPDATE users SET senha_hash = ?, reset_code = NULL, reset_expires = NULL WHERE id = ?", [senha_hash, id]);
+        saveDatabase();
+
+        res.json({ message: "Senha redefinida com sucesso." });
+    } catch (error) {
+        console.error("Erro ao redefinir senha:", error);
+        res.status(500).json({ error: "Erro interno do servidor" });
+    }
+});
+/**
+ * GET /api/auth/users
+ * Retorna todos os usuários (Apenas Administradores).
+ */
+router.get("/users", authMiddleware, (req: Request, res: Response): void => {
+    try {
+        const db = getDb();
+        const requestor = db.exec("SELECT role FROM users WHERE id = ?", [req.userId!]);
+        const role = requestor?.[0]?.values?.[0]?.[0] as string;
+        
+        if (role !== "Administrador") {
+            res.status(403).json({ error: "Acesso negado. Apenas administradores." });
+            return;
+        }
+
+        const result = db.exec("SELECT id, nome, celular, matricula, role, reset_code FROM users ORDER BY nome ASC");
+        
+        if (result.length === 0 || result[0].values.length === 0) {
+            res.json([]);
+            return;
+        }
+
+        const columns = result[0].columns;
+        const users = result[0].values.map(val => {
+           let obj: any = {};
+           columns.forEach((col, i) => {
+               obj[col] = val[i];
+           });
+           return obj;
+        });
+
+        res.json(users);
+    } catch (error) {
+        console.error("Erro ao listar usuários:", error);
+        res.status(500).json({ error: "Erro interno do servidor" });
+    }
+});
 
 export default router;
