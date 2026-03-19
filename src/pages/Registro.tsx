@@ -662,7 +662,7 @@ const Registro = () => {
               onClick={addVisitaExtra}
               className="w-full h-14 glass-card rounded-2xl flex items-center justify-center gap-2 text-sm font-bold text-foreground border-2 border-dashed border-white/30 hover:bg-white/10 transition-all active:scale-[0.98]"
             >
-              <Plus className="h-5 w-5" /> Adicionar Visita Extra
+              <Plus className="h-5 w-5" /> Adicionar Atividade Extra
             </button>
           </>
         )}

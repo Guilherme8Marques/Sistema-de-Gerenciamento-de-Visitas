@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LogOut, Leaf } from "lucide-react";
+import { LogOut, Leaf, Settings } from "lucide-react";
 import coffeeBg from "@/assets/coffee-bg.jpg";
 import principalLogo from "@/assets/Principal.png";
 
@@ -14,7 +14,7 @@ const menuItems = [
   {
     id: "planejamento",
     iconSrc: iconPlanejar,
-    title: "Planejar Visitas",
+    title: "Planejamento",
     description: "Organize sua agenda semanal",
     color: "from-primary to-green-light",
     path: "/planejamento",
@@ -22,7 +22,7 @@ const menuItems = [
   {
     id: "registro",
     iconSrc: iconRegistro,
-    title: "Registro de Visitas",
+    title: "Registro",
     description: "Registre as visitas realizadas",
     color: "from-secondary to-brown-light",
     path: "/registro",
@@ -30,7 +30,7 @@ const menuItems = [
   {
     id: "calendario",
     iconSrc: iconCalendario,
-    title: "Calendário de Visitas",
+    title: "Calendário",
     description: "Consulte seu histórico mensal",
     color: "from-green-light to-primary",
     path: "/calendario",
@@ -64,25 +64,41 @@ const Menu = () => {
     <div className="flex-1 flex flex-col">
 
       <header className="relative z-10 flex items-center justify-between px-5 pt-6 pb-4 border-b border-white/5 bg-white/5 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 flex items-center justify-center">
-            <img src={principalLogo} alt="Logo" className="w-full h-full object-contain" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-white/40 uppercase tracking-widest leading-none">
-              Sistema
-            </span>
-            <span className="text-sm font-bold text-white tracking-tight">
-              Gerenciador de Visitas
-            </span>
-          </div>
-        </div>
         <button
           onClick={handleLogout}
-          className="glass-card w-10 h-10 rounded-xl flex items-center justify-center hover:scale-105 transition-transform"
+          className="glass-card w-10 h-10 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shrink-0"
+          title="Sair"
         >
-          <LogOut className="w-5 h-5 text-primary-foreground" />
+          <LogOut className="w-5 h-5 text-primary-foreground transform rotate-180" />
         </button>
+
+        <div className="flex flex-col items-center justify-center absolute left-1/2 -translate-x-1/2 pointer-events-none">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 flex items-center justify-center">
+              <img src={principalLogo} alt="Logo" className="w-full h-full object-contain drop-shadow-md" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-white/50 uppercase tracking-widest leading-none">
+                Sistema
+              </span>
+              <span className="text-sm font-bold text-white tracking-tight">
+                Gerenciador
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {showDashboard ? (
+          <button
+            onClick={() => navigate("/configuracoes")}
+            className="glass-card w-10 h-10 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shrink-0"
+            title="Configurações e Acessos"
+          >
+            <Settings className="w-5 h-5 text-primary-foreground" />
+          </button>
+        ) : (
+          <div className="w-10 h-10 shrink-0" />
+        )}
       </header>
 
       {/* Welcome */}
