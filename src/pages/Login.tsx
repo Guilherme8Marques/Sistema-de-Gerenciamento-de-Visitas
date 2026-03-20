@@ -181,11 +181,11 @@ const Login = () => {
             className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]"
           />
         </div>
-        <h1 className="text-3xl font-display font-bold text-white text-center leading-tight">
-          Gerenciador de Visitas
+        <h1 className="text-4xl font-display font-extrabold text-center leading-tight">
+          <span className="bg-gradient-to-r from-white via-emerald-200 to-amber-200 bg-clip-text text-transparent drop-shadow-lg">AgroMapa</span>
         </h1>
-        <p className="text-sm text-white/60 mt-2 font-medium tracking-wide">
-          SISTEMA DE VISITAS DE CAMPO
+        <p className="text-sm text-white/60 mt-2 font-semibold tracking-[0.2em] uppercase">
+          Gestão de Visitas de Campo
         </p>
       </div>
 

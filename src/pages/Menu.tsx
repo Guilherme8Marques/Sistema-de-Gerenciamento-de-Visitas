@@ -78,11 +78,8 @@ const Menu = () => {
               <img src={principalLogo} alt="Logo" className="w-full h-full object-contain drop-shadow-md" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[9px] font-bold text-white/50 uppercase tracking-widest leading-none">
-                Sistema
-              </span>
-              <span className="text-sm font-bold text-white tracking-tight">
-                Gerenciador
+              <span className="text-sm font-extrabold tracking-tight bg-gradient-to-r from-white to-emerald-300 bg-clip-text text-transparent">
+                AgroMapa
               </span>
             </div>
           </div>

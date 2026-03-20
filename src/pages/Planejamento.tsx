@@ -275,8 +275,8 @@ const Planejamento = () => {
         >
           <ArrowLeft className="w-5 h-5 text-primary-foreground" />
         </button>
-        <div className="flex items-center gap-4">
-          <img src={iconPlanejar} alt="Icone Planejar" className="w-20 h-20 object-contain drop-shadow-2xl" />
+        <div className="flex items-center gap-3">
+          <img src={iconPlanejar} alt="Icone Planejar" className="w-12 h-12 object-contain drop-shadow-2xl" />
           <h1 className="text-2xl font-display font-bold text-primary-foreground">Planejar Visitas</h1>
         </div>
       </header>
