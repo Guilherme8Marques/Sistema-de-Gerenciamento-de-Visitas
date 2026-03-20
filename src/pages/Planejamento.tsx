@@ -275,9 +275,13 @@ const Planejamento = () => {
         >
           <ArrowLeft className="w-5 h-5 text-primary-foreground" />
         </button>
-        <div className="flex items-center gap-3">
-          <img src={iconPlanejar} alt="Icone Planejar" className="w-12 h-12 object-contain drop-shadow-2xl" />
-          <h1 className="text-2xl font-display font-bold text-primary-foreground">Planejar Visitas</h1>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
+            AgroMapa
+          </span>
+          <h1 className="text-2xl font-display font-bold text-primary-foreground leading-tight">
+            Planejamento
+          </h1>
         </div>
       </header>
 

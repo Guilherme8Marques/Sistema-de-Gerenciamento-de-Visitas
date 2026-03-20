@@ -96,12 +96,16 @@ const Configuracoes = () => {
           <ArrowLeft className="w-5 h-5 text-primary-foreground" />
         </button>
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 flex items-center justify-center bg-white/10 rounded-xl backdrop-blur-md">
-            <KeySquare className="w-6 h-6 text-primary-foreground" />
+          <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-xl backdrop-blur-md">
+            <KeySquare className="w-5 h-5 text-primary-foreground" />
           </div>
           <div className="flex flex-col">
-            <h1 className="text-xl font-display font-bold text-primary-foreground leading-tight">Configurações</h1>
-            <span className="text-xs text-primary-foreground/70 font-medium">Gestão de Acessos</span>
+            <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
+              AgroMapa
+            </span>
+            <h1 className="text-2xl font-display font-bold text-primary-foreground leading-tight">
+              Configurações
+            </h1>
           </div>
         </div>
       </header>

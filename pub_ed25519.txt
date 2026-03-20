@@ -1,0 +1,1 @@
+﻿ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMos/TPhEFBD+t03QxGHBtGjYEdbd8qi6Pnu7ZeUE/0+ cooxupe\luizcypriano@Luizg

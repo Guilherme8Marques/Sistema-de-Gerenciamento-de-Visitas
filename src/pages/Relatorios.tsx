@@ -434,11 +434,16 @@ export default function Relatorios() {
                 >
                     <ArrowLeft className="w-5 h-5 text-primary-foreground" />
                 </button>
-                <div className="flex items-center gap-4">
-                    <img src={iconRelatorios} alt="Ícone Relatórios" className="w-20 h-20 object-contain shrink-0 drop-shadow-2xl" />
-                    <div>
-                        <h1 className="text-2xl font-display font-bold text-primary-foreground">Relatórios Gerenciais</h1>
-                        <p className="text-[10px] text-primary-foreground/60 font-medium uppercase tracking-wider mt-0.5">
+                <div className="flex items-center gap-3">
+                    <img src={iconRelatorios} alt="Ícone Relatórios" className="w-12 h-12 object-contain shrink-0 drop-shadow-2xl" />
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
+                            AgroMapa
+                        </span>
+                        <h1 className="text-2xl font-display font-bold text-primary-foreground leading-tight">
+                            Relatórios
+                        </h1>
+                        <p className="text-[9px] text-primary-foreground/40 font-medium uppercase tracking-wider mt-0.5">
                             {periodo.labelMes} • {periodo.labelPeriodo}
                         </p>
                     </div>

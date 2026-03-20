@@ -225,9 +225,16 @@ const PlanejamentoSemanal = () => {
                 <Button variant="ghost" size="icon" onClick={() => navigate("/menu")} className="text-primary-foreground hover:bg-white/10">
                     <ArrowLeft className="h-6 w-6" />
                 </Button>
-                <div className="flex items-center gap-4">
-                    <img src={iconPlanejar} alt="Icone Planejar" className="w-20 h-20 object-contain drop-shadow-2xl" />
-                    <h1 className="text-2xl font-bold text-primary-foreground font-display">Planejamento Semanal</h1>
+                <div className="flex items-center gap-3">
+                    <img src={iconPlanejar} alt="Icone Planejar" className="w-12 h-12 object-contain drop-shadow-2xl" />
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
+                            AgroMapa
+                        </span>
+                        <h1 className="text-2xl font-display font-bold text-primary-foreground leading-tight">
+                            Mapa Semanal
+                        </h1>
+                    </div>
                 </div>
 
                 <Button
