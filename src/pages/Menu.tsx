@@ -3,17 +3,14 @@ import { LogOut, Leaf, Settings } from "lucide-react";
 import coffeeBg from "@/assets/coffee-bg.jpg";
 import principalLogo from "@/assets/Principal.png";
 
-import iconPlanejar from "@/assets/Planejar Visitas.png";
-import iconRegistro from "@/assets/Registro de Visitas.png";
-import iconCalendario from "@/assets/Calendário de Visitas.png";
-import iconRelatorios from "@/assets/Relatórios Gerenciais.png";
+
 
 const ADMIN_ROLE = "Administrador";
 
 const menuItems = [
   {
     id: "planejamento",
-    iconSrc: iconPlanejar,
+    iconSrc: principalLogo,
     title: "Planejamento",
     description: "Organize sua agenda semanal",
     color: "from-primary to-green-light",
@@ -21,7 +18,7 @@ const menuItems = [
   },
   {
     id: "registro",
-    iconSrc: iconRegistro,
+    iconSrc: principalLogo,
     title: "Registro",
     description: "Registre as visitas realizadas",
     color: "from-secondary to-brown-light",
@@ -29,7 +26,7 @@ const menuItems = [
   },
   {
     id: "calendario",
-    iconSrc: iconCalendario,
+    iconSrc: principalLogo,
     title: "Calendário",
     description: "Consulte seu histórico mensal",
     color: "from-green-light to-primary",
@@ -37,7 +34,7 @@ const menuItems = [
   },
   {
     id: "relatorios",
-    iconSrc: iconRelatorios,
+    iconSrc: principalLogo,
     title: "Relatórios Gerenciais",
     description: "Desempenho, métricas e histórico da equipe",
     color: "from-accent to-gold-light",
@@ -63,10 +60,10 @@ const Menu = () => {
   return (
     <div className="flex-1 flex flex-col">
 
-      <header className="relative z-10 flex items-center justify-between px-5 pt-6 pb-4 border-b border-white/5 bg-white/5 backdrop-blur-sm">
+      <header className="relative z-10 flex items-center justify-between px-5 pt-6 pb-4 border-b border-white/5 bg-white/5">
         <button
           onClick={handleLogout}
-          className="glass-card w-10 h-10 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shrink-0"
+          className="bg-white/10 w-10 h-10 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shrink-0"
           title="Sair"
         >
           <LogOut className="w-5 h-5 text-primary-foreground transform rotate-180" />
@@ -88,7 +85,7 @@ const Menu = () => {
         {showDashboard ? (
           <button
             onClick={() => navigate("/configuracoes")}
-            className="glass-card w-10 h-10 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shrink-0"
+            className="bg-white/10 w-10 h-10 rounded-xl flex items-center justify-center hover:scale-105 transition-transform shrink-0"
             title="Configurações e Acessos"
           >
             <Settings className="w-5 h-5 text-primary-foreground" />

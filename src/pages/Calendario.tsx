@@ -13,7 +13,7 @@ import {
     Check,
 } from "lucide-react";
 import coffeeBg from "@/assets/coffee-bg.jpg";
-import iconCalendario from "@/assets/Calendário de Visitas.png";
+import principalLogo from "@/assets/Principal.png";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -203,12 +203,12 @@ const Calendario = () => {
             <header className="relative z-10 flex items-center gap-3 px-5 pt-6 pb-4">
                 <button
                     onClick={() => navigate("/menu")}
-                    className="glass-card w-9 h-9 rounded-xl flex items-center justify-center transition-transform active:scale-95"
+                    className="bg-white/10 w-9 h-9 rounded-xl flex items-center justify-center transition-transform active:scale-95"
                 >
                     <ArrowLeft className="w-5 h-5 text-primary-foreground" />
                 </button>
                 <div className="flex items-center gap-3">
-                    <img src={iconCalendario} alt="Icone Calendario" className="w-12 h-12 object-contain drop-shadow-2xl" />
+                    <img src={principalLogo} alt="AgroMapa" className="w-10 h-10 object-contain drop-shadow-2xl" />
                     <div className="flex flex-col">
                         <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
                             AgroMapa

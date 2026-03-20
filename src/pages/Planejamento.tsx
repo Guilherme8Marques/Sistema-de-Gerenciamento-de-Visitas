@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Save, Check, Loader2, ChevronDown } from "lucide-react";
 import coffeeBg from "@/assets/coffee-bg.jpg";
-import iconPlanejar from "@/assets/Planejar Visitas.png";
+import principalLogo from "@/assets/Principal.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -271,17 +271,20 @@ const Planejamento = () => {
       <header className="relative z-10 flex items-center gap-3 px-5 pt-6 pb-4">
         <button
           onClick={() => navigate("/menu")}
-          className="glass-card w-9 h-9 rounded-xl flex items-center justify-center transition-transform active:scale-95"
+          className="bg-white/10 w-9 h-9 rounded-xl flex items-center justify-center transition-transform active:scale-95"
         >
           <ArrowLeft className="w-5 h-5 text-primary-foreground" />
         </button>
-        <div className="flex flex-col">
-          <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
-            AgroMapa
-          </span>
-          <h1 className="text-2xl font-display font-bold text-primary-foreground leading-tight">
-            Planejamento
-          </h1>
+        <div className="flex items-center gap-3">
+          <img src={principalLogo} alt="AgroMapa" className="w-10 h-10 object-contain drop-shadow-2xl" />
+          <div className="flex flex-col">
+            <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
+              AgroMapa
+            </span>
+            <h1 className="text-2xl font-display font-bold text-primary-foreground leading-tight">
+              Planejamento
+            </h1>
+          </div>
         </div>
       </header>
 

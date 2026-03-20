@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, KeySquare, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import iconRegistro from "@/assets/Registro de Visitas.png";
+import principalLogo from "@/assets/Principal.png";
 
 type User = {
   id: number;
@@ -91,14 +91,12 @@ const Configuracoes = () => {
       <header className="relative z-10 flex items-center gap-3 px-5 pt-6 pb-4">
         <button
           onClick={() => navigate("/menu")}
-          className="glass-card w-9 h-9 rounded-xl flex items-center justify-center transition-transform active:scale-95 shrink-0"
+          className="bg-white/10 w-9 h-9 rounded-xl flex items-center justify-center transition-transform active:scale-95 shrink-0"
         >
           <ArrowLeft className="w-5 h-5 text-primary-foreground" />
         </button>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-xl backdrop-blur-md">
-            <KeySquare className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <img src={principalLogo} alt="AgroMapa" className="w-10 h-10 object-contain drop-shadow-2xl" />
           <div className="flex flex-col">
             <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
               AgroMapa
