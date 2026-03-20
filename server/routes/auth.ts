@@ -11,6 +11,26 @@ function normalizeCelular(raw: string): string {
 }
 
 /**
+ * Gera as duas variantes de um celular (com e sem o 9° dígito).
+ * Ex: "35998740954" → ["3598740954", "35998740954"]
+ *     "3598740954"  → ["3598740954", "35998740954"]
+ */
+function celularVariants(celularClean: string): string[] {
+    if (celularClean.length < 10) return [celularClean];
+    const ddd = celularClean.slice(0, 2);
+    const rest = celularClean.slice(2);
+
+    if (rest.length === 9 && rest.startsWith("9")) {
+        // 11 dígitos: gera variante sem o 9
+        return [ddd + rest.slice(1), celularClean];
+    } else if (rest.length === 8) {
+        // 10 dígitos: gera variante com o 9
+        return [celularClean, ddd + "9" + rest];
+    }
+    return [celularClean];
+}
+
+/**
  * POST /api/auth/register
  * Cadastro de novo usuário. Valida celular contra lista autorizada.
  */
@@ -41,10 +61,12 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
         const db = getDb();
         const celularClean = normalizeCelular(celular);
 
-        // Verificar se celular é autorizado (sempre usando o formato normalizado)
+        // Verificar se celular é autorizado (busca com e sem o 9° dígito)
+        const variants = celularVariants(celularClean);
+        const placeholders = variants.map(() => "?").join(", ");
         const autorizado = db.exec(
-            "SELECT id, cargo FROM celulares_autorizados WHERE numero = ? AND ativo = 1",
-            [celularClean]
+            `SELECT id, cargo FROM celulares_autorizados WHERE numero IN (${placeholders}) AND ativo = 1`,
+            variants
         );
         if (autorizado.length === 0 || autorizado[0].values.length === 0) {
             res.status(403).json({ error: "Celular não autorizado. Utilize seu celular corporativo." });
@@ -54,8 +76,11 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
         const roleFromDb = autorizado[0].values[0][1] as string | null;
         const userCargo = roleFromDb?.trim() || "consultor";
 
-        // Verificar se já existe usuário com esse celular
-        const existente = db.exec("SELECT id FROM users WHERE celular = ?", [celularClean]);
+        // Verificar se já existe usuário com esse celular (busca ambas variantes)
+        const existente = db.exec(
+            `SELECT id FROM users WHERE celular IN (${placeholders})`,
+            variants
+        );
         if (existente.length > 0 && existente[0].values.length > 0) {
             res.status(409).json({ error: "Já existe um cadastro com este celular" });
             return;
@@ -94,10 +119,12 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
 
         const db = getDb();
         const celularClean = normalizeCelular(celular);
+        const variants = celularVariants(celularClean);
+        const placeholders = variants.map(() => "?").join(", ");
 
         const result = db.exec(
-            "SELECT id, nome, matricula, celular, senha_hash, role FROM users WHERE celular = ?",
-            [celularClean]
+            `SELECT id, nome, matricula, celular, senha_hash, role FROM users WHERE celular IN (${placeholders})`,
+            variants
         );
 
         if (result.length === 0 || result[0].values.length === 0) {
@@ -125,8 +152,8 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
         // Sincronizar cargo com a planilha a cada login
         try {
             const autorizado = db.exec(
-                "SELECT cargo FROM celulares_autorizados WHERE numero = ? AND ativo = 1",
-                [celularClean]
+                `SELECT cargo FROM celulares_autorizados WHERE numero IN (${placeholders}) AND ativo = 1`,
+                variants
             );
             if (autorizado.length > 0 && autorizado[0].values.length > 0) {
                 const cargoPlanilha = (autorizado[0].values[0][0] as string | null)?.trim() || "consultor";
@@ -246,9 +273,11 @@ router.post("/validate-reset-code", async (req: Request, res: Response): Promise
         }
         
         const celularClean = normalizeCelular(celular);
+        const variants = celularVariants(celularClean);
+        const placeholders = variants.map(() => "?").join(", ");
 
         const db = getDb();
-        const result = db.exec("SELECT reset_code, reset_expires FROM users WHERE celular = ?", [celularClean]);
+        const result = db.exec(`SELECT reset_code, reset_expires FROM users WHERE celular IN (${placeholders})`, variants);
 
         if (result.length === 0 || result[0].values.length === 0) {
             res.status(404).json({ error: "Usuário não encontrado." });
@@ -284,6 +313,8 @@ router.post("/reset-password", async (req: Request, res: Response): Promise<void
     try {
         const { celular, code, novaSenha } = req.body;
         const celularClean = normalizeCelular(celular);
+        const variants = celularVariants(celularClean);
+        const placeholders = variants.map(() => "?").join(", ");
 
         if (!novaSenha || novaSenha.length < 6 || !/(?=.*[0-9])/.test(novaSenha) || !/(?=.*[!@#$%^&*])/.test(novaSenha)) {
             res.status(400).json({ error: "A senha não cumpre os requisitos mínimos de segurança." });
@@ -291,7 +322,7 @@ router.post("/reset-password", async (req: Request, res: Response): Promise<void
         }
 
         const db = getDb();
-        const result = db.exec("SELECT id, reset_code, reset_expires FROM users WHERE celular = ?", [celularClean]);
+        const result = db.exec(`SELECT id, reset_code, reset_expires FROM users WHERE celular IN (${placeholders})`, variants);
 
         if (result.length === 0 || result[0].values.length === 0) {
             res.status(404).json({ error: "Usuário não encontrado." });
