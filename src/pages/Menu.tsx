@@ -2,15 +2,16 @@ import { useNavigate } from "react-router-dom";
 import { LogOut, Leaf, Settings } from "lucide-react";
 import coffeeBg from "@/assets/coffee-bg.jpg";
 import principalLogo from "@/assets/Principal.png";
-
-
-
+import iconPlanejar from "@/assets/Planejar Visitas.png";
+import iconRegistro from "@/assets/Registro de Visitas.png";
+import iconCalendario from "@/assets/Calendário de Visitas.png";
+import iconRelatorios from "@/assets/Relatórios Gerenciais.png";
 const ADMIN_ROLE = "Administrador";
 
 const menuItems = [
   {
     id: "planejamento",
-    iconSrc: principalLogo,
+    iconSrc: iconPlanejar,
     title: "Planejamento",
     description: "Organize sua agenda semanal",
     color: "from-primary to-green-light",
@@ -18,7 +19,7 @@ const menuItems = [
   },
   {
     id: "registro",
-    iconSrc: principalLogo,
+    iconSrc: iconRegistro,
     title: "Registro",
     description: "Registre as visitas realizadas",
     color: "from-secondary to-brown-light",
@@ -26,7 +27,7 @@ const menuItems = [
   },
   {
     id: "calendario",
-    iconSrc: principalLogo,
+    iconSrc: iconCalendario,
     title: "Calendário",
     description: "Consulte seu histórico mensal",
     color: "from-green-light to-primary",
@@ -34,7 +35,7 @@ const menuItems = [
   },
   {
     id: "relatorios",
-    iconSrc: principalLogo,
+    iconSrc: iconRelatorios,
     title: "Relatórios Gerenciais",
     description: "Desempenho, métricas e histórico da equipe",
     color: "from-accent to-gold-light",

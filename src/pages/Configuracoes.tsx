@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, KeySquare, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import principalLogo from "@/assets/Principal.png";
+
 
 type User = {
   id: number;
@@ -96,7 +96,9 @@ const Configuracoes = () => {
           <ArrowLeft className="w-5 h-5 text-primary-foreground" />
         </button>
         <div className="flex items-center gap-3">
-          <img src={principalLogo} alt="AgroMapa" className="w-10 h-10 object-contain drop-shadow-2xl" />
+          <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-xl">
+            <KeySquare className="w-5 h-5 text-primary-foreground" />
+          </div>
           <div className="flex flex-col">
             <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
               AgroMapa

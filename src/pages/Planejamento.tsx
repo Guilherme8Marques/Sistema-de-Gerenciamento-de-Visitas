@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Save, Check, Loader2, ChevronDown } from "lucide-react";
 import coffeeBg from "@/assets/coffee-bg.jpg";
-import principalLogo from "@/assets/Principal.png";
+import iconPlanejar from "@/assets/Planejar Visitas.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -276,7 +276,7 @@ const Planejamento = () => {
           <ArrowLeft className="w-5 h-5 text-primary-foreground" />
         </button>
         <div className="flex items-center gap-3">
-          <img src={principalLogo} alt="AgroMapa" className="w-10 h-10 object-contain drop-shadow-2xl" />
+          <img src={iconPlanejar} alt="Icone Planejar" className="w-12 h-12 object-contain drop-shadow-2xl" />
           <div className="flex flex-col">
             <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
               AgroMapa

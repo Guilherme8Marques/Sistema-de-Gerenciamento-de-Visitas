@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import principalLogo from "@/assets/Principal.png";
+import iconRelatorios from "@/assets/Relatórios Gerenciais.png";
 
 // ShadCN UI Components
 import { Button } from "@/components/ui/button";
@@ -435,7 +435,7 @@ export default function Relatorios() {
                     <ArrowLeft className="w-5 h-5 text-primary-foreground" />
                 </button>
                 <div className="flex items-center gap-3">
-                    <img src={principalLogo} alt="AgroMapa" className="w-10 h-10 object-contain shrink-0 drop-shadow-2xl" />
+                    <img src={iconRelatorios} alt="Ícone Relatórios" className="w-12 h-12 object-contain shrink-0 drop-shadow-2xl" />
                     <div className="flex flex-col">
                         <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
                             AgroMapa

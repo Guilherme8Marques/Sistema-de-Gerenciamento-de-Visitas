@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ptBR } from "date-fns/locale";
 import { ArrowLeft, Loader2, Save, Calendar, Users } from "lucide-react";
 import coffeeBg from "@/assets/coffee-bg.jpg"; // Added import
-import principalLogo from "@/assets/Principal.png";
+import iconPlanejar from "@/assets/Planejar Visitas.png";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -226,7 +226,7 @@ const PlanejamentoSemanal = () => {
                     <ArrowLeft className="h-6 w-6" />
                 </Button>
                 <div className="flex items-center gap-3">
-                    <img src={principalLogo} alt="AgroMapa" className="w-10 h-10 object-contain drop-shadow-2xl" />
+                    <img src={iconPlanejar} alt="Icone Planejar" className="w-12 h-12 object-contain drop-shadow-2xl" />
                     <div className="flex flex-col">
                         <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
                             AgroMapa
