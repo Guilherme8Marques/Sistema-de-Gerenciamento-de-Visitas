@@ -27,3 +27,13 @@ dist-ssr
 Modelo/
 dados/
 server/database.db
+
+# Chaves e credenciais
+*.pem
+*.key
+*.pub
+priv_*
+pub_*
+id_rsa*
+.env*
+! .env.example
