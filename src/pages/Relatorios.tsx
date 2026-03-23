@@ -435,12 +435,14 @@ export default function Relatorios() {
                     <ArrowLeft className="w-5 h-5 text-primary-foreground" />
                 </button>
                 <div className="flex items-center gap-3">
-                    <img src={iconRelatorios} alt="Ícone Relatórios" className="w-12 h-12 object-contain shrink-0 drop-shadow-2xl" />
+                    <div className="w-16 h-16 flex-shrink-0 flex items-center justify-center">
+                        <img src={iconRelatorios} alt="Ícone Relatórios" className="w-full h-full object-contain drop-shadow-2xl" />
+                    </div>
                     <div className="flex flex-col">
                         <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
                             AgroMapa
                         </span>
-                        <h1 className="text-2xl font-display font-bold text-primary-foreground leading-tight">
+                        <h1 className="text-3xl font-display font-bold text-primary-foreground leading-tight">
                             Relatórios
                         </h1>
                         <p className="text-[9px] text-primary-foreground/40 font-medium uppercase tracking-wider mt-0.5">
@@ -714,7 +716,7 @@ export default function Relatorios() {
                                                         Matrícula
                                                     </th>
                                                     {diasUteis.map((d) => (
-                                                        <th key={d.dateKey} className="px-4 py-3 text-center border-b border-white/10" style={{ minWidth: 200 }}>
+                                                        <th key={d.dateKey} className="px-4 py-3 text-center border-b border-white/10 min-w-[120px]">
                                                             <div className="text-primary-foreground font-extrabold text-xs">{d.dayNum}</div>
                                                             <div className="text-[9px] text-white/50 capitalize font-medium">{d.weekday}</div>
                                                         </th>
@@ -738,11 +740,11 @@ export default function Relatorios() {
                                                                 <td className="px-4 py-3 align-top text-xs text-white/50 text-center">
                                                                     {consultor.matricula}
                                                                 </td>
-                                                                {diasUteis.map((d) => {
+                                                                    {diasUteis.map((d) => {
                                                                     const visitas = getVisitasDia(consultor, d.dateKey);
                                                                     totalConsultor += visitas.length;
                                                                     return (
-                                                                        <td key={d.dateKey} className="px-4 py-3 align-top" style={{ minWidth: 200 }}>
+                                                                        <td key={d.dateKey} className="px-4 py-3 align-top min-w-[120px]">
                                                                             {visitas.length > 0 ? (
                                                                                 <div className="space-y-1">
                                                                                     {visitas.map((v, i) => (

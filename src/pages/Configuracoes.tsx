@@ -96,14 +96,14 @@ const Configuracoes = () => {
           <ArrowLeft className="w-5 h-5 text-primary-foreground" />
         </button>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-xl">
-            <KeySquare className="w-5 h-5 text-primary-foreground" />
+          <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center bg-white/10 rounded-2xl">
+            <KeySquare className="w-7 h-7 text-primary-foreground" />
           </div>
           <div className="flex flex-col">
             <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
               AgroMapa
             </span>
-            <h1 className="text-2xl font-display font-bold text-primary-foreground leading-tight">
+            <h1 className="text-3xl font-display font-bold text-primary-foreground leading-tight">
               Configurações
             </h1>
           </div>

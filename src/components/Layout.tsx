@@ -13,7 +13,7 @@ const Layout = () => {
             <div className="fixed inset-0 gradient-bg z-0 pointer-events-none" />
 
             {/* Content Area */}
-            <div className="relative z-10 flex flex-col flex-1">
+            <div className="relative z-10 flex flex-col flex-1 pb-10">
                 <Outlet />
             </div>
         </div>

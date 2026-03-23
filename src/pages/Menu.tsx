@@ -71,12 +71,12 @@ const Menu = () => {
         </button>
 
         <div className="flex flex-col items-center justify-center absolute left-1/2 -translate-x-1/2 pointer-events-none">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 flex items-center justify-center">
               <img src={principalLogo} alt="Logo" className="w-full h-full object-contain drop-shadow-md" />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-extrabold tracking-tight bg-gradient-to-r from-white to-emerald-300 bg-clip-text text-transparent">
+              <span className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-white to-emerald-300 bg-clip-text text-transparent drop-shadow-sm">
                 AgroMapa
               </span>
             </div>
@@ -117,11 +117,11 @@ const Menu = () => {
               className="group w-full glass-card-strong rounded-2xl p-5 flex items-center gap-4 text-left shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all animate-fade-in-up"
               style={{ animationDelay: `${0.1 + index * 0.1}s` }}
             >
-              <div className="w-16 h-16 flex-shrink-0 flex items-center justify-center overflow-hidden rounded-xl">
+              <div className="w-20 h-20 flex-shrink-0 flex items-center justify-center">
                 <img
                   src={item.iconSrc}
                   alt={item.title}
-                  className="w-14 h-14 object-contain drop-shadow-xl transition-transform duration-300 group-hover:scale-110"
+                  className="w-full h-full object-contain drop-shadow-2xl transition-transform duration-300 group-hover:scale-110"
                 />
               </div>
               <div>
