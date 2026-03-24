@@ -128,14 +128,14 @@ const Cadastro = () => {
 
   return (
     <div className="relative flex flex-col items-center justify-center overflow-x-hidden py-12 min-h-screen">
-      {/* Background Image */}
+      {/* Background Image - bleeds vertically for mobile scroll handling */}
       <img
         src={coffeeBg}
         alt="Plantação de café"
-        className="fixed inset-0 w-full h-full object-cover"
+        className="fixed -inset-y-20 inset-x-0 w-full h-[120vh] object-cover pointer-events-none"
       />
       {/* Overlay */}
-      <div className="fixed inset-0 gradient-bg" />
+      <div className="fixed -inset-y-20 inset-x-0 w-full h-[120vh] gradient-bg pointer-events-none" />
 
       {/* Back button */}
       <div className="relative z-10 w-full max-w-sm px-6 mb-6 flex justify-start">
