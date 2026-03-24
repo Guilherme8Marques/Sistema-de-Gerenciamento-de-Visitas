@@ -83,13 +83,7 @@
     font-family: 'Nunito', sans-serif;
     overflow-x: hidden;
     min-height: 100dvh;
-    min-height: -webkit-fill-available;
     overscroll-behavior-y: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  html {
-    height: -webkit-fill-available;
   }
 
   h1,

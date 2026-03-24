@@ -1,7 +1,6 @@
 /* App-level overrides — kept minimal since all design tokens live in index.css */
 #root {
   min-height: 100dvh;
-  min-height: -webkit-fill-available;
   display: flex;
   flex-direction: column;
 }
