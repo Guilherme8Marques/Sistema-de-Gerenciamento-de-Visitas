@@ -82,8 +82,6 @@
     @apply bg-background text-foreground;
     font-family: 'Nunito', sans-serif;
     overflow-x: hidden;
-    min-height: 100dvh;
-    overscroll-behavior-y: none;
   }
 
   h1,

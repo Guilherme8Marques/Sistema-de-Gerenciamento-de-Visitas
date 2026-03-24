@@ -1,6 +1,6 @@
-/* App-level overrides — kept minimal since all design tokens live in index.css */
+/* App-level overrides */
 #root {
-  min-height: 100dvh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }

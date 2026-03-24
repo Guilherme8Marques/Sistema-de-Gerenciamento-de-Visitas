@@ -127,7 +127,7 @@ const Cadastro = () => {
   };
 
   return (
-    <div className="relative flex flex-col items-center justify-center overflow-hidden py-12" style={{ minHeight: '100dvh' }}>
+    <div className="relative flex flex-col items-center justify-center overflow-x-hidden py-12 min-h-screen">
       {/* Background Image */}
       <img
         src={coffeeBg}
