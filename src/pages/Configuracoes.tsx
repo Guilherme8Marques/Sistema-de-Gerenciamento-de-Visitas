@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, KeySquare, Loader2 } from "lucide-react";
+import { ArrowLeft, KeySquare, Loader2, Search, Copy, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 
@@ -18,6 +18,11 @@ const Configuracoes = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const userStr = localStorage.getItem("user");
+  const loggedUser = userStr ? JSON.parse(userStr) : null;
+  const isMaster = loggedUser?.celular === "3597786623";
 
   useEffect(() => {
     loadUsers();
@@ -86,6 +91,24 @@ const Configuracoes = () => {
     }
   };
 
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`PIN ${text} copiado!`);
+    } catch (e) {
+      toast.error("Erro ao copiar.");
+    }
+  };
+
+  const filteredUsers = users.filter(user => {
+    const query = searchQuery.toLowerCase();
+    return (
+      user.nome.toLowerCase().includes(query) ||
+      user.celular.includes(query) ||
+      user.matricula.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div className="flex-1 flex flex-col">
       <header className="relative z-10 flex items-center gap-3 px-5 pt-6 pb-4">
@@ -112,9 +135,21 @@ const Configuracoes = () => {
 
       <main className="relative z-10 flex-1 px-4 py-6">
         <div className="glass-card-strong rounded-2xl overflow-hidden shadow-xl border border-white/10 animate-fade-in-up">
-          <div className="p-5 border-b border-white/10 bg-black/20">
-            <h2 className="text-base font-bold text-white">Usuários do Sistema</h2>
-            <p className="text-xs text-white/60 mt-1">Gere PINs de redefinição de senha clicando na chave.</p>
+          <div className="p-4 sm:p-5 border-b border-white/10 bg-black/20 space-y-4">
+            <div>
+              <h2 className="text-base font-bold text-white">Usuários do Sistema</h2>
+              <p className="text-xs text-white/60 mt-1">Gere PINs de redefinição de senha clicando na chave.</p>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <input
+                type="text"
+                placeholder="Buscar por nome, celular ou matrícula..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all"
+              />
+            </div>
           </div>
           
           <div className="p-2 space-y-1 max-h-[60vh] overflow-y-auto">
@@ -122,34 +157,56 @@ const Configuracoes = () => {
               <div className="p-8 flex justify-center text-white/50">
                 <Loader2 className="w-6 h-6 animate-spin" />
               </div>
-            ) : users.length === 0 ? (
-              <div className="p-8 text-center text-white/50 text-sm">Nenhum usuário encontrado.</div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="p-8 text-center text-white/50 text-sm">Nenhum usuário encontrado na busca.</div>
             ) : (
-              users.map(user => (
-                <div key={user.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors group">
+              filteredUsers.map(user => (
+                <div key={user.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors group gap-3 border border-transparent hover:border-white/5">
                   <div className="flex flex-col overflow-hidden text-ellipsis whitespace-nowrap">
                     <span className="text-sm font-bold text-white pr-2 truncate" title={user.nome}>{user.nome}</span>
                     <span className="text-xs text-white/50">{user.celular} • {user.matricula}</span>
                   </div>
                   
-                  <div className="flex items-center gap-2 pl-2">
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
                     {user.reset_code && (
-                      <span className="text-[10px] font-mono bg-accent/20 text-accent px-2 py-1 rounded-md border border-accent/20 hidden sm:block">
-                        PIN ATIVO
-                      </span>
+                      <div className="flex items-center bg-black/40 border border-accent/30 rounded-lg overflow-hidden shrink-0">
+                        <span className="text-sm font-mono text-white px-3 py-1.5 tracking-widest font-bold">
+                          {user.reset_code}
+                        </span>
+                        <button
+                          onClick={() => copyToClipboard(user.reset_code!)}
+                          className="px-2.5 py-1.5 bg-accent/20 hover:bg-accent/40 transition-colors border-l border-accent/30 flex items-center justify-center"
+                          title="Copiar PIN"
+                        >
+                          <Copy className="w-4 h-4 text-accent-light" />
+                        </button>
+                      </div>
                     )}
-                    <button
-                      onClick={() => handleGeneratePIN(user.id, user.nome)}
-                      disabled={generating === user.id}
-                      className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all disabled:opacity-50 shrink-0"
-                      title="Gerar PIN de Redefinição"
-                    >
-                      {generating === user.id ? (
-                        <Loader2 className="w-4 h-4 text-white animate-spin" />
-                      ) : (
-                        <KeySquare className="w-4 h-4 text-white" />
-                      )}
-                    </button>
+                    
+                    {!user.reset_code && (
+                      <button
+                        onClick={() => handleGeneratePIN(user.id, user.nome)}
+                        disabled={generating === user.id}
+                        className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all disabled:opacity-50 shrink-0"
+                        title="Gerar PIN de Redefinição"
+                      >
+                        {generating === user.id ? (
+                          <Loader2 className="w-4 h-4 text-white animate-spin" />
+                        ) : (
+                          <KeySquare className="w-4 h-4 text-white" />
+                        )}
+                      </button>
+                    )}
+
+                    {isMaster && (
+                      <button
+                        onClick={() => navigate(`/gerenciar-usuario/${user.id}`)}
+                        className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/20 flex items-center justify-center transition-all shrink-0 border border-white/10 group-hover:border-white/20"
+                        title="Gerenciar Usuário"
+                      >
+                        <Settings className="w-4 h-4 text-white/70 group-hover:text-white" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))

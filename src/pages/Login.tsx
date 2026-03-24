@@ -185,7 +185,7 @@ const Login = () => {
           <span className="bg-gradient-to-r from-white via-emerald-200 to-amber-200 bg-clip-text text-transparent drop-shadow-lg">AgroMapa</span>
         </h1>
         <p className="text-sm text-white/60 mt-2 font-semibold tracking-[0.2em] uppercase">
-          Gestão de Visitas de Campo
+          Gestão de Campo
         </p>
       </div>
 

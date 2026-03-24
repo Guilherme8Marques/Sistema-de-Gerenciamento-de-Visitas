@@ -179,6 +179,15 @@ function createTables(): void {
   try { db.run("ALTER TABLE celulares_autorizados ADD COLUMN fornecedor TEXT"); } catch { }
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS blacklist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      celular TEXT UNIQUE NOT NULL,
+      motivo TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nome TEXT NOT NULL,

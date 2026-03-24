@@ -12,6 +12,7 @@ import Registro from "./pages/Registro";
 import Calendario from "./pages/Calendario";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
+import ManageUser from "./pages/ManageUser";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/calendario" element={<Calendario />} />
             <Route path="/relatorios" element={<Relatorios />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
+            <Route path="/gerenciar-usuario/:id" element={<ManageUser />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -15,6 +15,7 @@ import planejamentoRoutes from "./routes/planejamento.js";
 import registroRoutes from "./routes/registro.js";
 import relatoriosRoutes from "./routes/relatorios.js";
 import dashboardRoutes from "./routes/dashboard.js";
+import adminRoutes from "./routes/admin.js";
 import { sincronizarUsuariosExcel, iniciarObservadorExcel } from "./sync-excel.js";
 
 dotenv.config();
@@ -42,6 +43,7 @@ app.use("/api/planejamento", planejamentoRoutes);
 app.use("/api/registro", registroRoutes);
 app.use("/api/relatorios", relatoriosRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

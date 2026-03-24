@@ -370,7 +370,7 @@ router.get("/users", authMiddleware, (req: Request, res: Response): void => {
             return;
         }
 
-        const result = db.exec("SELECT id, nome, celular, matricula, role, reset_code FROM users ORDER BY nome ASC");
+        const result = db.exec("SELECT id, nome, celular, matricula, role, reset_code, reset_expires FROM users ORDER BY nome ASC");
         
         if (result.length === 0 || result[0].values.length === 0) {
             res.json([]);
@@ -378,11 +378,17 @@ router.get("/users", authMiddleware, (req: Request, res: Response): void => {
         }
 
         const columns = result[0].columns;
+        const now = new Date();
         const users = result[0].values.map(val => {
            let obj: any = {};
            columns.forEach((col, i) => {
                obj[col] = val[i];
            });
+           // Esconder PINs que já passaram do tempo de validade (15 min)
+           if (obj.reset_expires && new Date(obj.reset_expires) < now) {
+               obj.reset_code = null;
+           }
+           delete obj.reset_expires; // não enviar pro frontend
            return obj;
         });
 

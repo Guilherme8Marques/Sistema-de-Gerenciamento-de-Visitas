@@ -38,6 +38,13 @@ export function sincronizarUsuariosExcel() {
             if (celularClean.length < 10) continue; // Precisa do DDD no mínimo
 
             try {
+                // Proteção Blacklist
+                const blacklistCheck = db.exec("SELECT id FROM blacklist WHERE celular = ?", [celularClean]);
+                if (blacklistCheck.length > 0 && blacklistCheck[0].values.length > 0) {
+                    console.log(`🚫 [AUTO-SYNC] Ignorando ${nomeRaw} (${celularClean}) pois está na Blacklist.`);
+                    continue;
+                }
+
                 db.run(
                     "INSERT OR REPLACE INTO celulares_autorizados (numero, matricula, nome, cargo, fornecedor, ativo) VALUES (?, ?, ?, ?, ?, 1)",
                     [
