@@ -11,67 +11,36 @@ const router = Router();
  */
 router.get("/", authMiddleware, (req: Request, res: Response): void => {
     try {
-        const busca = req.query.busca as string || "";
         const db = getDb();
+        const busca = (req.query.busca as string) || "";
 
         let result;
-        if (busca.trim()) {
-            // A busca do usuário, sem acentos e em minúsculo
-            const buscaNorm = busca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-            // Buscamos um número maior de cooperados cru (sem WHERE no nome, pois Node JS lida melhor com acentos UTF8).
-            const rawExec = db.exec(`
+        if (busca.trim()) {
+            const buscaParam = `%${busca.toLowerCase()}%`;
+            
+            // Busca performática via SQL com LIMIT
+            result = db.exec(`
                 SELECT c.id, c.nome, c.matricula, f.id as filial_id, f.nome as filial_nome, f.cidade
                 FROM cooperados c
                 JOIN filiais f ON c.filial_id = f.id
-            `);
+                WHERE LOWER(c.nome) LIKE ? OR c.matricula LIKE ?
+                ORDER BY 
+                    CASE 
+                        WHEN c.matricula = ? THEN 0
+                        WHEN c.matricula LIKE ? THEN 1
+                        WHEN LOWER(c.nome) LIKE ? THEN 2
+                        ELSE 3
+                    END,
+                    c.nome ASC
+                LIMIT 20
+            `, [buscaParam, buscaParam, busca.trim(), `${busca.trim()}%`, `${busca.toLowerCase()}%`]);
 
-            if (rawExec.length === 0) {
+            if (result.length === 0 || result[0].values.length === 0) {
+                console.log(`🔍 [BUSCA] Nenhum resultado para "${busca}"`);
                 res.json([]);
                 return;
             }
-
-            // Mapeando e filtrando no Node JS nativo
-            const todos = rawExec[0].values.map((row) => ({
-                id: row[0],
-                nome: row[1] as string,
-                matricula: row[2] as string,
-                filial: {
-                    id: row[3],
-                    nome: row[4],
-                    cidade: row[5],
-                },
-            }));
-
-            // Filtra manualmente
-            const filtrados = todos.filter((coop) => {
-                const nomeNorm = String(coop.nome).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                return nomeNorm.includes(buscaNorm) || String(coop.matricula).includes(buscaNorm);
-            });
-
-            // Ordena os resultados para dar prioridade à matrícula exata > matrícula parcial > nome
-            filtrados.sort((a, b) => {
-                const aNomeNorm = String(a.nome).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                const bNomeNorm = String(b.nome).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-                let scoreA = 3;
-                if (String(a.matricula) === buscaNorm) scoreA = 0;
-                else if (String(a.matricula).startsWith(buscaNorm)) scoreA = 1;
-                else if (aNomeNorm.startsWith(buscaNorm)) scoreA = 2;
-
-                let scoreB = 3;
-                if (String(b.matricula) === buscaNorm) scoreB = 0;
-                else if (String(b.matricula).startsWith(buscaNorm)) scoreB = 1;
-                else if (bNomeNorm.startsWith(buscaNorm)) scoreB = 2;
-
-                if (scoreA !== scoreB) return scoreA - scoreB;
-                return aNomeNorm.localeCompare(bNomeNorm);
-            });
-
-            // Retorna o resultado já paginado para a interface nao travar
-            res.json(filtrados.slice(0, 20));
-            return;
-
         } else {
             result = db.exec(`
                 SELECT c.id, c.nome, c.matricula, f.id as filial_id, f.nome as filial_nome, f.cidade
@@ -82,7 +51,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
             `);
         }
 
-        if (result.length === 0) {
+        if (result.length === 0 || result[0].values.length === 0) {
             res.json([]);
             return;
         }

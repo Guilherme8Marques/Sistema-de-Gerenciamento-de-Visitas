@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import CooperadoSearch, { type CooperadoOption } from "@/components/CooperadoSearch";
+import { isFeriado } from "@/utils/feriados";
 
 const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"] as const;
 
@@ -62,6 +63,7 @@ const Planejamento = () => {
     { id: 1, acao: "", detalhe: "", cooperado: null, salvo: false },
   ]);
   const [carregando, setCarregando] = useState(false);
+  const [diaFeriado, setDiaFeriado] = useState<{ isFeriado: boolean; nome?: string }>({ isFeriado: false });
   const scrollRef = useRef<HTMLDivElement>(null);
 
   /**
@@ -130,7 +132,11 @@ const Planejamento = () => {
   // Carregar ao mudar dia ou semana
   useEffect(() => {
     if (diaSelecionado) {
+      const dataStr = calcularData(semana, diaSelecionado);
+      setDiaFeriado(isFeriado(dataStr));
       carregarAtividades(semana, diaSelecionado);
+    } else {
+      setDiaFeriado({ isFeriado: false });
     }
   }, [semana, diaSelecionado, carregarAtividades]);
 
@@ -344,8 +350,21 @@ const Planejamento = () => {
           </div>
         )}
 
+        {/* Holiday Banner */}
+        {!carregando && diaSelecionado && diaFeriado.isFeriado && (
+          <div className="glass-card-strong p-5 rounded-xl border-l-4 border-l-red-500 animate-fade-in-up bg-red-500/10" style={{ animationDelay: '0.2s' }}>
+            <h3 className="text-base font-bold text-red-300 mb-1 flex items-center gap-2">
+              <span className="text-lg">⚠️</span> Planejamento Bloqueado
+            </h3>
+            <p className="text-sm text-red-200/90 leading-tight">
+              O dia selecionado é um feriado (<strong>{diaFeriado.nome}</strong>).<br/>
+              A adição ou edição de atividades está desativada.
+            </p>
+          </div>
+        )}
+
         {/* Activities */}
-        {!carregando && diaSelecionado && (
+        {!carregando && diaSelecionado && !diaFeriado.isFeriado && (
           <div className="space-y-4 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
             <label className="text-sm font-bold text-primary-foreground/70 uppercase tracking-wider ml-1">
               Atividades ({atividades.length}/5)

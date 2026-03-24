@@ -16,6 +16,7 @@ import coffeeBg from "@/assets/coffee-bg.jpg";
 import iconCalendario from "@/assets/Calendário de Visitas.png";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { isFeriado } from "@/utils/feriados";
 
 function getToken(): string {
     return localStorage.getItem("auth_token") || "";
@@ -274,6 +275,15 @@ const Calendario = () => {
                                             const hasVisitas = !!dayData && dayData.total > 0;
                                             const isToday = dateKey === todayKey;
 
+                                            // [NEW] Check Holiday/Weekend
+                                            const dateObj = new Date(currentYear, currentMonth, day, 12, 0, 0);
+                                            const dayOfWeek = dateObj.getDay();
+                                            const isSunday = dayOfWeek === 0;
+                                            const isSaturday = dayOfWeek === 6;
+                                            const feriadoCheck = isFeriado(dateObj);
+                                            const isRedBlocked = isSunday || feriadoCheck.isFeriado;
+                                            const isMutedBlocked = isSaturday && !feriadoCheck.isFeriado;
+
                                             // Determine visual status
                                             let vStatus: "pending" | "done" | null = null;
                                             if (hasVisitas) {
@@ -290,9 +300,12 @@ const Calendario = () => {
                                                             ${vStatus === "pending" ? "ring-2" : ""}
                                                             ${vStatus === "done" ? "ring-2" : ""}
                                                             ${isToday && !vStatus ? "ring-2" : ""}
+                                                            ${isRedBlocked && !vStatus ? "bg-red-500/10 text-red-300 border border-red-500/20" : ""}
+                                                            ${isMutedBlocked && !vStatus ? "bg-white/5 text-white/40" : ""}
                                                         `}
+                                                        title={feriadoCheck.isFeriado ? feriadoCheck.nome : isSunday ? "Domingo" : isSaturday ? "Sábado" : ""}
                                                         style={{
-                                                            color: "hsl(0, 0%, 96%)",
+                                                            color: (isRedBlocked && !vStatus) || (isMutedBlocked && !vStatus) ? undefined : "hsl(0, 0%, 96%)",
                                                             ...(vStatus === "pending" ? {
                                                                 ringColor: "hsl(var(--day-pending))",
                                                                 boxShadow: "inset 0 0 0 2px hsl(var(--day-pending))",
@@ -351,6 +364,18 @@ const Calendario = () => {
                                             />
                                             <span className="text-sm" style={{ color: "hsl(0, 0%, 96%)" }}>
                                                 Dia Atual
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="w-4 h-4 rounded-full bg-red-500/10 border border-red-500/20 flex-shrink-0" />
+                                            <span className="text-sm" style={{ color: "hsl(0, 0%, 96%)" }}>
+                                                Feriado / Domingo
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="w-4 h-4 rounded-full bg-white/5 border border-white/10 flex-shrink-0" />
+                                            <span className="text-sm text-white/50">
+                                                Sábado
                                             </span>
                                         </div>
                                     </div>

@@ -49,6 +49,8 @@ type Visita = {
   dbId?: number;
   planejamento_id?: number;
   cooperado_id?: number;
+  acao?: "visita" | "evento";
+  evento_nome?: string;
   nome: string;
   cooperado?: CooperadoOption | null;
   resultado: string;
@@ -116,16 +118,20 @@ const Registro = () => {
       if (data.planejadas) {
         for (const p of data.planejadas) {
           if (planejamentoIdsRegistrados.has(p.planejamento_id)) continue;
-          // Substituindo as linhas 113 a 121
+          
+          const nomeGerado = p.tipo === "evento"
+              ? `⭐ Evento: ${p.evento_nome}`
+              : p.cooperado_nome
+                ? `${p.cooperado_matricula} — ${p.cooperado_nome} (${p.filial_nome})`
+                : "";
+
+          if (!nomeGerado) continue; // Prevent ghost records where Cooperado was deleted
+
           todasVisitas.push({
             id: Date.now() + Math.random(),
             planejamento_id: p.planejamento_id,
             cooperado_id: p.cooperado_id,
-            nome: p.tipo === "evento"
-              ? `⭐ Evento: ${p.evento_nome}`
-              : p.cooperado_nome
-                ? `${p.cooperado_matricula} — ${p.cooperado_nome} (${p.filial_nome})`
-                : "",
+            nome: nomeGerado,
             cooperado: p.cooperado_id ? {
               id: p.cooperado_id,
               nome: p.cooperado_nome || "",
@@ -142,14 +148,16 @@ const Registro = () => {
       // Adicionar visitas já registradas
       if (data.visitas) {
         for (const v of data.visitas) {
+          const nomeGerado = v.cooperado_nome
+              ? `${v.cooperado_matricula} — ${v.cooperado_nome} (${v.filial_nome})`
+              : v.evento_nome ? `⭐ Evento: ${v.evento_nome}` : "";
+
           todasVisitas.push({
             id: Date.now() + Math.random(),
             dbId: v.id,
             planejamento_id: v.planejamento_id,
             cooperado_id: v.cooperado_id,
-            nome: v.cooperado_nome
-              ? `${v.cooperado_matricula} — ${v.cooperado_nome} (${v.filial_nome})`
-              : "",
+            nome: nomeGerado || "⚠️ Atividade Inválida / Cooperado Removido",
             cooperado: v.cooperado_id ? {
               id: v.cooperado_id,
               nome: v.cooperado_nome || "",
@@ -208,6 +216,7 @@ const Registro = () => {
     const id = Date.now();
     const nova: Visita = {
       id,
+      acao: "visita",
       nome: "",
       cooperado: null,
       resultado: "",
@@ -241,6 +250,8 @@ const Registro = () => {
           return updated;
         }
         if (field === "nome") return { ...v, nome: value, registrado: false };
+        if (field === "acao") return { ...v, acao: value as any, cooperado: null, evento_nome: "", registrado: false };
+        if (field === "evento_nome") return { ...v, evento_nome: value, registrado: false };
         return v;
       })
     );
@@ -307,8 +318,12 @@ const Registro = () => {
     const visita = visitas.find((v) => v.id === id);
     if (!visita) return;
 
-    if (visita.extra && !visita.cooperado) {
+    if (visita.extra && visita.acao !== "evento" && !visita.cooperado) {
       toast.error("Selecione um cooperado da lista.");
+      return;
+    }
+    if (visita.extra && visita.acao === "evento" && (!visita.evento_nome || !visita.evento_nome.trim())) {
+      toast.error("Preencha o nome do evento.");
       return;
     }
     if (!visita.resultado) {
@@ -344,6 +359,7 @@ const Registro = () => {
         doencas_pragas: visita.doencasPragas,
         negociacao_dados: visita.negociacao || null,
         extra: visita.extra || false,
+        evento_nome: visita.acao === "evento" ? visita.evento_nome : undefined,
         planejamento_id: visita.planejamento_id || null,
       };
 
@@ -437,9 +453,9 @@ const Registro = () => {
             {/* Visits list */}
             {visitas.length === 0 ? (
               <div className="rounded-xl border-2 border-dashed border-border p-8 text-center text-muted-foreground">
-                Nenhuma visita planejada para este dia.
+                Nenhuma atividade planejada para este dia.
                 <br />
-                <span className="text-sm">Adicione uma visita extra ou planeje no menu "Planejar Visitas".</span>
+                <span className="text-sm">Adicione uma atividade extra ou planeje no menu "Planejamento".</span>
               </div>
             ) : (
               <div className="space-y-4">
@@ -456,11 +472,37 @@ const Registro = () => {
                     <div className="p-4 space-y-3">
                       {/* Visit name — autocomplete for extra, plain text for scheduled */}
                       {visita.extra && !visita.registrado ? (
-                        <CooperadoSearch
-                          value={visita.cooperado || null}
-                          onChange={(coop) => updateCooperadoExtra(visita.id, coop)}
-                          disabled={visita.registrado}
-                        />
+                        <div className="space-y-3">
+                          <Select
+                            value={visita.acao || "visita"}
+                            onValueChange={(v) => updateVisita(visita.id, "acao", v)}
+                            disabled={visita.registrado}
+                          >
+                            <SelectTrigger className={visita.registrado ? "opacity-60" : ""}>
+                              <SelectValue placeholder="Tipo de Ação" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="visita">Visita</SelectItem>
+                              <SelectItem value="evento">Evento</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {visita.acao === "evento" ? (
+                             <Input
+                                placeholder="Nome do Evento"
+                                value={visita.evento_nome || ""}
+                                onChange={(e) => updateVisita(visita.id, "evento_nome", e.target.value)}
+                                className="h-12 text-base"
+                                disabled={visita.registrado}
+                             />
+                          ) : (
+                             <CooperadoSearch
+                               value={visita.cooperado || null}
+                               onChange={(coop) => updateCooperadoExtra(visita.id, coop)}
+                               disabled={visita.registrado}
+                             />
+                          )}
+                        </div>
                       ) : (
                         <div className="space-y-1">
                           <p className="text-sm font-bold text-white">

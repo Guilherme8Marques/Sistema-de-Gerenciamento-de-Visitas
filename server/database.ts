@@ -272,6 +272,12 @@ function createTables(): void {
     );
   `);
 
+  try {
+    db.run("ALTER TABLE visitas ADD COLUMN evento_nome TEXT");
+  } catch {
+    // Coluna já existe, ignorar
+  }
+
   // Índices para performance
   db.run("CREATE INDEX IF NOT EXISTS idx_cooperados_nome ON cooperados(nome);");
   db.run("CREATE INDEX IF NOT EXISTS idx_cooperados_filial ON cooperados(filial_id);");

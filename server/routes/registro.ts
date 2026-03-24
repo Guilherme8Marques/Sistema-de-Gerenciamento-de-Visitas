@@ -26,7 +26,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
             `SELECT v.id, v.planejamento_id, v.cooperado_id, v.data_visita,
               v.resultado, v.doencas_pragas, v.negociacao_dados, v.extra,
               c.nome as cooperado_nome, c.matricula as cooperado_matricula,
-              f.id as filial_id, f.nome as filial_nome
+              f.id as filial_id, f.nome as filial_nome, v.evento_nome
        FROM visitas v
        LEFT JOIN cooperados c ON v.cooperado_id = c.id
        LEFT JOIN filiais f ON c.filial_id = f.id
@@ -62,6 +62,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
                 cooperado_matricula: row[9],
                 filial_id: row[10],
                 filial_nome: row[11],
+                evento_nome: row[12],
                 registrado: true,
             }))
             : [];
@@ -106,8 +107,8 @@ router.post("/", authMiddleware, (req: Request, res: Response): void => {
 
         db.run(
             `INSERT INTO visitas (user_id, planejamento_id, cooperado_id, data_visita,
-              resultado, doencas_pragas, negociacao_dados, extra)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              resultado, doencas_pragas, negociacao_dados, extra, evento_nome)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 userId,
                 body.planejamento_id || null,
@@ -117,6 +118,7 @@ router.post("/", authMiddleware, (req: Request, res: Response): void => {
                 doencasPragas,
                 negociacaoDados,
                 body.extra ? 1 : 0,
+                (body as any).evento_nome || null,
             ]
         );
 
