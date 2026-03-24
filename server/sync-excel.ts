@@ -71,7 +71,69 @@ export function sincronizarUsuariosExcel() {
             console.log(`🛡️  [GARANTIA ATIVADA] Forçado a autorização do Guilherme: 3597786623`);
         } catch (e) { }
 
-        console.log(`✅ [AUTO-SYNC] ${celularesCount} celulares autorizados atualizados no SQLite com sucesso.\n`);
+        console.log(`✅ [AUTO-SYNC] ${celularesCount} celulares autorizados atualizados no SQLite com sucesso.`);
+
+        // ── Segunda passagem: Sincronizar dados dos USUÁRIOS existentes ──
+        // Se o nome ou cargo mudou na planilha, atualizar na tabela `users` também.
+        let usersAtualizados = 0;
+        for (const row of usuariosRecords as any[]) {
+            const celularRaw = row["CELULAR CXP"] || row["Celular CXP"] || row["Celular"] || row["celular"];
+            const nomeRaw = row["COLABORADOR(A)"] || row["Colaborador(a)"] || row["Nome"] || row["nome"];
+            const cargoRaw = row["CARGO."] || row["CARGO"] || row["Cargo"] || row["cargo"];
+
+            if (!celularRaw) continue;
+
+            const celularClean = String(celularRaw).replace(/\D/g, "");
+            if (celularClean.length < 10) continue;
+
+            const nomeLimpo = nomeRaw?.toString().trim() || null;
+            const cargoLimpo = cargoRaw?.toString().trim() || "consultor";
+
+            // Gerar variantes com e sem o 9° dígito
+            const ddd = celularClean.slice(0, 2);
+            const rest = celularClean.slice(2);
+            const variants: string[] = [];
+            if (rest.length === 9 && rest.startsWith("9")) {
+                variants.push(ddd + rest.slice(1), celularClean);
+            } else if (rest.length === 8) {
+                variants.push(celularClean, ddd + "9" + rest);
+            } else {
+                variants.push(celularClean);
+            }
+
+            try {
+                const placeholders = variants.map(() => "?").join(", ");
+                const userResult = db.exec(
+                    `SELECT id, nome, role FROM users WHERE celular IN (${placeholders})`,
+                    variants
+                );
+
+                if (userResult.length > 0 && userResult[0].values.length > 0) {
+                    const userId = userResult[0].values[0][0] as number;
+                    const nomeAtual = userResult[0].values[0][1] as string;
+                    const roleAtual = userResult[0].values[0][2] as string;
+
+                    const mudouNome = nomeLimpo && nomeLimpo !== nomeAtual;
+                    const mudouCargo = cargoLimpo !== roleAtual;
+
+                    if (mudouNome || mudouCargo) {
+                        db.run(
+                            "UPDATE users SET nome = COALESCE(?, nome), role = ? WHERE id = ?",
+                            [nomeLimpo, cargoLimpo, userId]
+                        );
+                        usersAtualizados++;
+                    }
+                }
+            } catch (e) {
+                // Silencioso — não interromper sync por causa de um user
+            }
+        }
+
+        if (usersAtualizados > 0) {
+            console.log(`🔄 [AUTO-SYNC] ${usersAtualizados} usuário(s) atualizados com dados da planilha (nome/cargo).`);
+        }
+
+        console.log(`\n`);
         saveDatabase();
     } catch (error) {
         console.error("❌ Erro no Auto-Sync de usuários do Excel:", error);

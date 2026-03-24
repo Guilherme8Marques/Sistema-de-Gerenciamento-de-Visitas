@@ -127,15 +127,15 @@ const Cadastro = () => {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden py-12">
+    <div className="relative flex flex-col items-center justify-center overflow-hidden py-12" style={{ minHeight: '100dvh' }}>
       {/* Background Image */}
       <img
         src={coffeeBg}
         alt="Plantação de café"
-        className="absolute inset-0 w-full h-full object-cover"
+        className="fixed inset-0 w-full h-full object-cover"
       />
       {/* Overlay */}
-      <div className="absolute inset-0 gradient-bg" />
+      <div className="fixed inset-0 gradient-bg" />
 
       {/* Back button */}
       <div className="relative z-10 w-full max-w-sm px-6 mb-6 flex justify-start">

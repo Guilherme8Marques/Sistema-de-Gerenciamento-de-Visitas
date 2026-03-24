@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { initDatabase, saveDatabase, releaseDatabaseOwnership } from "./database.js";
+import { initDatabase, getDb, saveDatabase, releaseDatabaseOwnership } from "./database.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -17,6 +17,7 @@ import relatoriosRoutes from "./routes/relatorios.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import adminRoutes from "./routes/admin.js";
 import { sincronizarUsuariosExcel, iniciarObservadorExcel } from "./sync-excel.js";
+import { sincronizarCooperadosCSV, iniciarObservadorCooperados } from "./sync-cooperados.js";
 
 dotenv.config();
 
@@ -92,13 +93,28 @@ process.on("SIGTERM", () => {
 async function start() {
     await initDatabase();
 
-    // Auto-sync silenciosamente usuários da planilha pro banco SQLite no boot
+    // Sincronizar dados do Excel e CSV na inicialização
     sincronizarUsuariosExcel();
+    sincronizarCooperadosCSV();
+  
+  // Diagnstico de dados
+  const db = getDb();
+  try {
+    const coops = db.exec("SELECT COUNT(*) FROM cooperados")[0].values[0][0];
+    const filiais = db.exec("SELECT COUNT(*) FROM filiais")[0].values[0][0];
+    console.log(`📊 [BANCO] Cooperados: ${coops} | Filiais: ${filiais}`);
+    if (coops === 0) {
+      console.warn("⚠️  [AVISO] A tabela de cooperados est VAZIA! Execute 'npm run import-dados' se necessrio.");
+    }
+  } catch (e) {
+    console.warn("⚠️  [AVISO] Nǜo foi possvel ler estatsticas do banco na inicializaǜo.");
+  }
     // Salvar o estado do banco após sync (garante que o sync é persistido)
     saveDatabase();
 
-    // Inicia o file watcher para sincronização em tempo real (on-save do Excel)
+    // Inicia os file watchers para sincronização em tempo real
     iniciarObservadorExcel();
+    iniciarObservadorCooperados();
 
     app.listen(Number(PORT), "0.0.0.0", () => {
         console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);

@@ -149,22 +149,34 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        // Sincronizar cargo com a planilha a cada login
+        // Sincronizar cargo e nome com a planilha a cada login
         try {
             const autorizado = db.exec(
-                `SELECT cargo FROM celulares_autorizados WHERE numero IN (${placeholders}) AND ativo = 1`,
+                `SELECT cargo, nome FROM celulares_autorizados WHERE numero IN (${placeholders}) AND ativo = 1`,
                 variants
             );
             if (autorizado.length > 0 && autorizado[0].values.length > 0) {
                 const cargoPlanilha = (autorizado[0].values[0][0] as string | null)?.trim() || "consultor";
-                if (cargoPlanilha !== user.role) {
-                    db.run("UPDATE users SET role = ? WHERE id = ?", [cargoPlanilha, user.id]);
+                const nomePlanilha = (autorizado[0].values[0][1] as string | null)?.trim() || null;
+
+                const mudouRole = cargoPlanilha !== user.role;
+                const mudouNome = nomePlanilha && nomePlanilha !== user.nome;
+
+                if (mudouRole || mudouNome) {
+                    db.run(
+                        "UPDATE users SET role = ?, nome = COALESCE(?, nome) WHERE id = ?",
+                        [cargoPlanilha, nomePlanilha, user.id]
+                    );
                     saveDatabase();
-                    user = { ...user, role: cargoPlanilha };
+                    user = {
+                        ...user,
+                        role: cargoPlanilha,
+                        nome: nomePlanilha || user.nome,
+                    };
                 }
             }
         } catch (e) {
-            console.error("Erro ao sincronizar cargo no login:", e);
+            console.error("Erro ao sincronizar cargo/nome no login:", e);
         }
 
         // Atualizar fingerprint se fornecido
