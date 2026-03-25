@@ -9,6 +9,8 @@ services:
       # Montar a pasta server inteira para evitar erros de criação de diretório (EISDIR)
       - ./server:/app/server
       - ./dados:/app/dados
+      # Volume anônimo para manter node_modules do container intactos
+      - /app/node_modules
     # Porta 5000 não exposta externamente (segurança)
 
   nginx:

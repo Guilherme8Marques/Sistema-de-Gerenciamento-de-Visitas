@@ -1,8 +1,12 @@
-# Use a imagem base estável do Node (Alpine para leveza)
-FROM node:20-alpine
+# Use a imagem base estável do Node (Debian Slim para melhor compatibilidade com better-sqlite3)
+FROM node:20-slim
 
-# Instalar dependências necessárias para módulos nativos (ex: better-sqlite3)
-RUN apk add --no-cache python3 make g++ 
+# Instalar dependências necessárias para módulos nativos
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
