@@ -1,6 +1,8 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { getDb, saveDatabase } from "../database.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { sincronizarUsuariosExcel } from "../sync-excel.js";
+import { sincronizarCooperadosCSV } from "../sync-cooperados.js";
 
 const router = Router();
 
@@ -188,6 +190,23 @@ router.delete("/user/:id", (req: Request, res: Response): void => {
     } catch (error) {
         console.error("Erro deletar usuario:", error);
         res.status(500).json({ error: "Erro ao processar usuário no DB" });
+    }
+});
+
+/**
+ * POST /api/admin/sync
+ * Gatilho manual para sincronizar Excel e CSV
+ */
+router.post("/sync", (req: Request, res: Response): void => {
+    try {
+        console.log("TS: [ADMIN] Sincronização manual solicitada por", req.userId);
+        sincronizarUsuariosExcel();
+        sincronizarCooperadosCSV();
+        saveDatabase();
+        res.json({ message: "Sincronização concluída com sucesso!" });
+    } catch (error) {
+        console.error("Erro na sync manual:", error);
+        res.status(500).json({ error: "Erro ao processar sincronização" });
     }
 });
 

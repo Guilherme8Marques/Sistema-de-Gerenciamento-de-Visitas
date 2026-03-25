@@ -151,6 +151,41 @@ const Configuracoes = () => {
               />
             </div>
           </div>
+
+          {isMaster && (
+            <div className="px-4 py-3 bg-white/5 border-b border-white/10 flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-white">Sincronização Manual</span>
+                <span className="text-[10px] text-white/50">Forçar leitura do Excel e CSV da pasta dados/</span>
+              </div>
+              <button
+                onClick={async () => {
+                  const btn = document.getElementById('sync-btn');
+                  if (btn) btn.classList.add('animate-spin');
+                  try {
+                    const r = await fetch('/api/admin/sync', {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${getToken()}` }
+                    });
+                    if (r.ok) {
+                      toast.success("Sincronização concluída!");
+                      loadUsers();
+                    } else {
+                      throw new Error();
+                    }
+                  } catch (e) {
+                    toast.error("Erro ao sincronizar. Verifique os arquivos.");
+                  } finally {
+                     if (btn) btn.classList.remove('animate-spin');
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-accent/20 hover:bg-accent/30 text-accent-light border border-accent/30 rounded-xl text-xs font-bold transition-all"
+              >
+                <Loader2 id="sync-btn" className="w-4 h-4" />
+                Sincronizar Agora
+              </button>
+            </div>
+          )}
           
           <div className="p-2 space-y-1 max-h-[60vh] overflow-y-auto">
             {loading ? (
