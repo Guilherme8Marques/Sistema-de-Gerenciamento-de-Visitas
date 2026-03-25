@@ -42,6 +42,8 @@ jobs:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 30m
           script: |
             cd ~/Sistema-de-Gerenciamento-de-Visitas
             docker compose down
