@@ -6,6 +6,9 @@ RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
+# Instalar tsx globalmente para garantir disponibilidade em produção
+RUN npm install -g tsx
+
 # Copiar apenas os arquivos de dependências primeiro (otimização de cache)
 COPY package*.json ./
 
@@ -25,5 +28,5 @@ EXPOSE 5000
 ENV NODE_ENV=production
 ENV PORT=5000
 
-# Executar o servidor usando tsx (conforme configurado no projeto)
-CMD ["npx", "tsx", "server/index.ts"]
+# Executar o servidor usando tsx (instalado globalmente)
+CMD ["tsx", "server/index.ts"]
