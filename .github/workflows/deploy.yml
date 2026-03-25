@@ -18,7 +18,7 @@ jobs:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
-          command_timeout: 30m
+          command_timeout: 60m
           script: |
             # Garante que estamos na home e limpa se não for git
             if [ -d "Sistema-de-Gerenciamento-de-Visitas" ] && [ ! -d "Sistema-de-Gerenciamento-de-Visitas/.git" ]; then
