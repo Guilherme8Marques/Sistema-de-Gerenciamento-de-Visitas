@@ -132,13 +132,19 @@ async function importar() {
     await initDatabase();
     const db = getDb();
 
+    // Desabilitar chaves estrangeiras temporariamente para limpeza total
+    db.run("PRAGMA foreign_keys=OFF;");
+
     // Limpar dados antigos (seed)
     db.run("DELETE FROM visitas;");
     db.run("DELETE FROM planejamento;");
     db.run("DELETE FROM propriedades;");
     db.run("DELETE FROM cooperados;");
     db.run("DELETE FROM filiais;");
-    // Não vamos deletar os users, eles serão atualizados ou mantidos
+    
+    // Reabilitar chaves estrangeiras
+    db.run("PRAGMA foreign_keys=ON;");
+    
     console.log("🗑️  Dados antigos removidos (seed)\n");
 
     // --- Passo 0: Importar Celulares Autorizados ---

@@ -31,7 +31,7 @@ jobs:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
-          source: "dist/,server/,package.json,package-lock.json,docker-compose.yml,Dockerfile,nginx.conf"
+          source: "dist,server,package.json,package-lock.json,docker-compose.yml,Dockerfile,nginx.conf"
           target: "~/Sistema-de-Gerenciamento-de-Visitas"
           strip_components: 0
           overwrite: true
