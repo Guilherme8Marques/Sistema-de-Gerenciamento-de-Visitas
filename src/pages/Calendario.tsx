@@ -400,7 +400,7 @@ const Calendario = () => {
                                 </h2>
                             </div>
                             <Badge variant="secondary" className="text-sm font-bold">
-                                {visitasDia.length} visita{visitasDia.length !== 1 ? "s" : ""}
+                                {visitasDia.length} atividade{visitasDia.length !== 1 ? "s" : ""}
                             </Badge>
                         </div>
                     </div>
@@ -412,11 +412,11 @@ const Calendario = () => {
                         {carregandoDia ? (
                             <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
                                 <Loader2 className="h-5 w-5 animate-spin" />
-                                <span className="text-sm">Carregando visitas...</span>
+                                <span className="text-sm">Carregando atividades...</span>
                             </div>
                         ) : visitasDia.length === 0 ? (
                             <div className="rounded-xl border-2 border-dashed border-border p-8 text-center text-muted-foreground">
-                                Nenhuma visita registrada neste dia.
+                                Nenhuma atividade registrada neste dia.
                             </div>
                         ) : (
                             visitasDia.map((visita) => {

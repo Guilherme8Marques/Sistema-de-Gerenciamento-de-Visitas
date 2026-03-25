@@ -388,7 +388,7 @@ const Planejamento = () => {
                             <Check className="h-3.5 w-3.5" /> Salvo
                           </span>
                         )}
-                        {(atividades.length > 1 || atv.dbId) && !atv.salvando && (
+                        {!atv.salvando && (
                           <Button
                             variant="ghost"
                             size="icon"

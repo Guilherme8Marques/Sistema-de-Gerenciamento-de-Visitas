@@ -442,7 +442,7 @@ const Registro = () => {
         {carregando && (
           <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Carregando visitas...</span>
+            <span className="text-sm">Carregando atividades...</span>
           </div>
         )}
 
