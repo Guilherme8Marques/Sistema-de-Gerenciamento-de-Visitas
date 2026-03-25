@@ -1,4 +1,4 @@
-# CI/CD Pipeline for AgroMapa (Manual Trigger Update)
+# CI/CD Pipeline - Deploy to GCP
 name: Deploy to GCP
 
 on:
@@ -31,7 +31,6 @@ jobs:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
-          # Transfere apenas o necessário: build, servidor e configs do Docker
           source: "dist/,server/,package.json,package-lock.json,docker-compose.yml,Dockerfile,nginx.conf"
           target: "~/Sistema-de-Gerenciamento-de-Visitas"
           strip_components: 0
@@ -45,30 +44,11 @@ jobs:
           key: ${{ secrets.GCP_SSH_KEY }}
           script: |
             cd ~/Sistema-de-Gerenciamento-de-Visitas
-            echo "--- ESTRUTURA DE DIRETORIOS NO SERVIDOR ---"
-            ls -R dist | head -n 20
-            echo "--- TIMESTAMP DO INDEX.HTML ---"
-            ls -l dist/index.html
             docker compose down
-            # Remover imagem antiga para forçar rebuild total do frontend no container
-            docker rmi sistema-de-gerenciamento-de-visitas-app || true
-            # Reinicia os containers aplicando as mudanças do Dockerfile e novos artefatos, forçando rebuild
-            docker compose up -d --build --no-cache
-            
-            echo "--- AGUARDANDO INICIALIZACAO (30s) ---"
-            sleep 30
-            
-            echo "--- STATUS DOS CONTAINERS ---"
+            docker compose up -d --build
+            sleep 10
+            echo "--- STATUS ---"
             docker compose ps
-            
-            echo "--- TESTE DE CONEXAO LOCAL ---"
-            curl -I http://localhost:80 || echo "FALHA AO ACESSAR LOCALHOST:80"
-            
-            echo "--- LOGS DO APP ---"
-            docker compose logs app --tail 100
-            
-            echo "--- LOGS DO NGINX ---"
-            docker compose logs nginx --tail 100
-            
-            # Limpa imagens antigas para economizar espaço
+            echo "--- APP LOGS ---"
+            docker compose logs app --tail 30
             docker image prune -f
