@@ -1,7 +1,6 @@
 # CI/CD Pipeline for AgroMapa (Manual Trigger Update)
 name: Deploy to GCP
 
-
 on:
   push:
     branches:
@@ -55,5 +54,11 @@ jobs:
             docker rmi sistema-de-gerenciamento-de-visitas-app || true
             # Reinicia os containers aplicando as mudanças do Dockerfile e novos artefatos, forçando rebuild
             docker compose up -d --build --no-cache
+            echo "--- STATUS DOS CONTAINERS ---"
+            docker compose ps
+            echo "--- LOGS DO APP ---"
+            docker compose logs app --tail 50
+            echo "--- LOGS DO NGINX ---"
+            docker compose logs nginx --tail 50
             # Limpa imagens antigas para economizar espaço
             docker image prune -f
