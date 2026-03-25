@@ -150,6 +150,9 @@ const Menu = () => {
           <p className="text-[11px] text-white/50 font-medium">
             Inteligência de Mercado / Comercial Insumos
           </p>
+          <p className="text-[8px] text-white/10 font-mono mt-1">
+            v1.0.2 - 25/03
+          </p>
         </div>
       </div>
     </div>

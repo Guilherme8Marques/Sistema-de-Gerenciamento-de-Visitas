@@ -44,7 +44,7 @@ const resultadoConfig: Record<string, { label: string; color: string; icon: type
     "Agendado": { label: "Agendado / Pendente", color: "text-amber-500", icon: Clock },
 };
 
-const defaultConfig = { label: "Realizada", color: "text-green-600", icon: CheckCircle2 };
+const defaultConfig = { label: "Atividade", color: "text-green-600", icon: CheckCircle2 };
 
 function getDaysInMonth(year: number, month: number) {
     return new Date(year, month + 1, 0).getDate();
@@ -330,7 +330,7 @@ const Calendario = () => {
                                                             style={{ fontSize: "0.55rem", padding: "1px 6px" }}
                                                         >
                                                             {vStatus === "done" && <Check size={8} className="status-check" />}
-                                                            {visitCount} {visitCount === 1 ? "item" : "itens"}
+                                                            {visitCount} {visitCount === 1 ? "atividade" : "atividades"}
                                                         </span>
                                                     )}
                                                 </div>
