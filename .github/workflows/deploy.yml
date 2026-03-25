@@ -54,11 +54,21 @@ jobs:
             docker rmi sistema-de-gerenciamento-de-visitas-app || true
             # Reinicia os containers aplicando as mudanças do Dockerfile e novos artefatos, forçando rebuild
             docker compose up -d --build --no-cache
+            
+            echo "--- AGUARDANDO INICIALIZACAO (30s) ---"
+            sleep 30
+            
             echo "--- STATUS DOS CONTAINERS ---"
             docker compose ps
+            
+            echo "--- TESTE DE CONEXAO LOCAL ---"
+            curl -I http://localhost:80 || echo "FALHA AO ACESSAR LOCALHOST:80"
+            
             echo "--- LOGS DO APP ---"
-            docker compose logs app --tail 50
+            docker compose logs app --tail 100
+            
             echo "--- LOGS DO NGINX ---"
-            docker compose logs nginx --tail 50
+            docker compose logs nginx --tail 100
+            
             # Limpa imagens antigas para economizar espaço
             docker image prune -f
