@@ -36,8 +36,9 @@ jobs:
           source: "dist/,server/,package.json,package-lock.json,docker-compose.yml,Dockerfile,nginx.conf"
           target: "~/Sistema-de-Gerenciamento-de-Visitas"
           strip_components: 0
+          overwrite: true
 
-      - name: Deploy and Restart Container via SSH
+      - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.GCP_HOST }}
@@ -45,7 +46,14 @@ jobs:
           key: ${{ secrets.GCP_SSH_KEY }}
           script: |
             cd ~/Sistema-de-Gerenciamento-de-Visitas
-            # Reinicia os containers aplicando as mudanças do Dockerfile e novos artefatos
-            docker compose up -d --build
+            echo "--- ESTRUTURA DE DIRETORIOS NO SERVIDOR ---"
+            ls -R dist | head -n 20
+            echo "--- TIMESTAMP DO INDEX.HTML ---"
+            ls -l dist/index.html
+            docker compose down
+            # Remover imagem antiga para forçar rebuild total do frontend no container
+            docker rmi sistema-de-gerenciamento-de-visitas-app || true
+            # Reinicia os containers aplicando as mudanças do Dockerfile e novos artefatos, forçando rebuild
+            docker compose up -d --build --no-cache
             # Limpa imagens antigas para economizar espaço
             docker image prune -f
