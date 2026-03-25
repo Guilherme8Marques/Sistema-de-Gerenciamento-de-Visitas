@@ -31,7 +31,7 @@ jobs:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
-          source: "dist,server,package.json,package-lock.json,docker-compose.yml,Dockerfile,nginx.conf"
+          source: "dist,server,package.json,package-lock.json,docker-compose.yml,Dockerfile,nginx.conf,.dockerignore"
           target: "~/Sistema-de-Gerenciamento-de-Visitas"
           strip_components: 0
           overwrite: true
@@ -45,6 +45,7 @@ jobs:
           script: |
             cd ~/Sistema-de-Gerenciamento-de-Visitas
             docker compose down
+            docker builder prune -af
             docker compose up -d --build
             sleep 10
             echo "--- STATUS ---"
