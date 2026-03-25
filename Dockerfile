@@ -1,34 +1,29 @@
-# Estágio de Build (CSS/Frontend)
-FROM node:20-alpine AS frontend-builder
-WORKDIR /app
+# Use a imagem base estável do Node (Alpine para leveza)
+FROM node:20-alpine
 
-# Instalar dependências para compilação se necessário
+# Instalar dependências necessárias para módulos nativos (ex: better-sqlite3)
 RUN apk add --no-cache python3 make g++ 
 
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-
-# Estágio de Produção
-FROM node:20-alpine
 WORKDIR /app
 
-# Instalar runtime para node-gyp se houver libs binárias
-RUN apk add --no-cache python3
-
+# Copiar apenas os arquivos de dependências primeiro (otimização de cache)
 COPY package*.json ./
+
+# Instalar apenas as dependências de produção
 RUN npm install --omit=dev
 
-# Copiar arquivos necessários
-COPY --from=frontend-builder /app/dist ./dist
-COPY --from=frontend-builder /app/server ./server
+# Copiar os artefatos pré-compilados pelo GitHub Actions e a pasta do servidor
+COPY dist ./dist
+COPY server ./server
+
+# Criar o diretório de dados para o SQLite
 RUN mkdir -p dados
 
+# Expor a porta definida na aplicação
 EXPOSE 5000
 
 ENV NODE_ENV=production
 ENV PORT=5000
 
-# Rodar servidor
+# Executar o servidor usando tsx (conforme configurado no projeto)
 CMD ["npx", "tsx", "server/index.ts"]

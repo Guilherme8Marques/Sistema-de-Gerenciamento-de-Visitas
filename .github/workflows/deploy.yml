@@ -6,35 +6,44 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Deploy to Server via SSH
-        uses: appleboy/ssh-action@v0.1.10
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Frontend
+        run: npm run build
+
+      - name: Copy Files to Server via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USERNAME }}
           key: ${{ secrets.GCP_SSH_KEY }}
-          command_timeout: 60m
+          # Transfere apenas o necessário: build, servidor e configs do Docker
+          source: "dist/,server/,package.json,package-lock.json,docker-compose.yml,Dockerfile,nginx.conf"
+          target: "~/Sistema-de-Gerenciamento-de-Visitas"
+          strip_components: 0
+
+      - name: Deploy and Restart Container via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCP_HOST }}
+          username: ${{ secrets.GCP_USERNAME }}
+          key: ${{ secrets.GCP_SSH_KEY }}
           script: |
-            # Garante que estamos na home e limpa se não for git
-            if [ -d "Sistema-de-Gerenciamento-de-Visitas" ] && [ ! -d "Sistema-de-Gerenciamento-de-Visitas/.git" ]; then
-              rm -rf Sistema-de-Gerenciamento-de-Visitas
-            fi
-            
-            if [ ! -d "Sistema-de-Gerenciamento-de-Visitas" ]; then
-              git clone https://github.com/Guilherme8Marques/Sistema-de-Gerenciamento-de-Visitas.git
-            fi
-            
-            cd Sistema-de-Gerenciamento-de-Visitas
-            git pull origin main
-            
-            # Tenta rodar sem sudo primeiro (assumindo que o user está no grupo docker)
-            # Se falhar, tenta com sudo -n (não interativo)
-            docker compose up -d --build || sudo -n docker compose up -d --build
-            
-            # Limpeza
-            docker image prune -f || sudo -n docker image prune -f
+            cd ~/Sistema-de-Gerenciamento-de-Visitas
+            # Reinicia os containers aplicando as mudanças do Dockerfile e novos artefatos
+            docker compose up -d --build
+            # Limpa imagens antigas para economizar espaço
+            docker image prune -f
