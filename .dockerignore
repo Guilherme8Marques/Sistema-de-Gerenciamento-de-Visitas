@@ -1,5 +1,5 @@
 node_modules
-dist
+# dist (removed from ignore to allow COPY in Dockerfile)
 .git
 .github
 dados/*.db
