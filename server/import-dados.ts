@@ -19,6 +19,9 @@ import { parse } from "csv-parse/sync";
 import iconv from "iconv-lite";
 import xlsx from "xlsx";
 import { initDatabase, getDb, saveDatabase } from "./database.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,7 +29,7 @@ const __dirname = path.dirname(__filename);
 // Pasta de dados
 const DADOS_DIR = path.join(__dirname, "..", "dados");
 
-const SERVER_PORT = 5000;
+const SERVER_PORT = parseInt(process.env.PORT || "5000");
 
 interface CsvRow {
     Matricula: string;
@@ -189,6 +192,46 @@ async function importar() {
     } catch (e) { }
 
     console.log(`✅ ${celularesCount} celulares autorizados inseridos`);
+
+    // --- Passo 0.5: Importar Colaboradores para "Acompanhado por" ---
+    db.run("DELETE FROM equipe_vendas;");
+    let colaboradoresPath = findFile(DADOS_DIR, /colaboradores.*\.xlsx$/i);
+    let equipeCount = 0;
+
+    if (colaboradoresPath && fs.existsSync(colaboradoresPath)) {
+        const wbColab = xlsx.readFile(colaboradoresPath);
+        const wsColab = wbColab.Sheets[wbColab.SheetNames[0]];
+        const rawRows: any[][] = xlsx.utils.sheet_to_json(wsColab, { header: 1 });
+
+        console.log(`📄 Usando Colaboradores: ${path.basename(colaboradoresPath)}`);
+
+        // O arquivo é tipo relatório: header na linha 5 (índice 5), dados a partir da linha 6
+        for (let i = 6; i < rawRows.length; i++) {
+            const row = rawRows[i];
+            if (!row || row.length < 2) continue;
+
+            const matricula = row[0]?.toString()?.trim();
+            const nome = row[1]?.toString()?.trim();
+            const cargo = row[3]?.toString()?.trim() || null;
+
+            if (!matricula || !nome) continue;
+            // Ignorar linhas que são subtotais ou cabeçalhos repetidos
+            if (isNaN(Number(matricula))) continue;
+
+            try {
+                db.run(
+                    "INSERT OR REPLACE INTO equipe_vendas (nome, matricula, cargo, ativo) VALUES (?, ?, ?, 1)",
+                    [nome, matricula, cargo]
+                );
+                equipeCount++;
+            } catch (e) {
+                // Ignorar duplicatas
+            }
+        }
+        console.log(`✅ ${equipeCount} colaboradores inseridos na equipe de vendas`);
+    } else {
+        console.warn(`⚠️ Arquivo de colaboradores (.xlsx) não encontrado na pasta 'dados/'.`);
+    }
 
     // --- Passo 1: Extrair filiais únicas ---
     const filiaisSet = new Map<string, { codigo: string; nome: string }>();

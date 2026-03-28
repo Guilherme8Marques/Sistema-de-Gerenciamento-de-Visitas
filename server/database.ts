@@ -278,6 +278,17 @@ function createTables(): void {
     // Coluna já existe, ignorar
   }
 
+  // Tabela da Equipe de Vendas (para o campo "Acompanhado por")
+  db.run(`
+    CREATE TABLE IF NOT EXISTS equipe_vendas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      matricula TEXT UNIQUE NOT NULL,
+      cargo TEXT,
+      ativo INTEGER DEFAULT 1
+    );
+  `);
+
   // Índices para performance
   db.run("CREATE INDEX IF NOT EXISTS idx_cooperados_nome ON cooperados(nome);");
   db.run("CREATE INDEX IF NOT EXISTS idx_cooperados_filial ON cooperados(filial_id);");
@@ -286,6 +297,7 @@ function createTables(): void {
   db.run("CREATE INDEX IF NOT EXISTS idx_visitas_user ON visitas(user_id);");
   db.run("CREATE INDEX IF NOT EXISTS idx_visitas_data ON visitas(data_visita);");
   db.run("CREATE INDEX IF NOT EXISTS idx_visitas_cooperado ON visitas(cooperado_id);");
+  db.run("CREATE INDEX IF NOT EXISTS idx_equipe_vendas_nome ON equipe_vendas(nome);");
 
   console.log("✅ Tabelas e índices criados");
 }

@@ -73,6 +73,7 @@ const Calendario = () => {
     // Dados do backend
     const [resumoMensal, setResumoMensal] = useState<Record<string, { total: number; realizadas: number }>>({});
     const [visitasDia, setVisitasDia] = useState<VisitaHistorico[]>([]);
+    const [feriadoDiaSelecionado, setFeriadoDiaSelecionado] = useState<{ isFeriado: boolean; nome?: string }>({ isFeriado: false });
     const [carregandoMes, setCarregandoMes] = useState(false);
     const [carregandoDia, setCarregandoDia] = useState(false);
 
@@ -183,12 +184,16 @@ const Calendario = () => {
         setCalendarMinimized(true);
         const dateKey = formatDateKey(currentYear, currentMonth, day);
         carregarVisitasDia(dateKey);
+        // Verificar se o dia é feriado
+        const dateObj = new Date(currentYear, currentMonth, day, 12, 0, 0);
+        setFeriadoDiaSelecionado(isFeriado(dateObj));
     };
 
     const handleOpenCalendar = () => {
         setCalendarMinimized(false);
         setSelectedDay(null);
-        setVisitasDia([]); // Clear visits when returning to calendar
+        setVisitasDia([]);
+        setFeriadoDiaSelecionado({ isFeriado: false });
     };
 
     // Build calendar grid
@@ -414,12 +419,24 @@ const Calendario = () => {
                                 <Loader2 className="h-5 w-5 animate-spin" />
                                 <span className="text-sm">Carregando atividades...</span>
                             </div>
-                        ) : visitasDia.length === 0 ? (
+                        ) : visitasDia.length === 0 && !feriadoDiaSelecionado.isFeriado ? (
                             <div className="rounded-xl border-2 border-dashed border-border p-8 text-center text-muted-foreground">
                                 Nenhuma atividade registrada neste dia.
                             </div>
                         ) : (
-                            visitasDia.map((visita) => {
+                            <>
+                                {/* Card de Feriado */}
+                                {feriadoDiaSelecionado.isFeriado && (
+                                    <div className="rounded-xl glass-card p-4 space-y-1 border-l-4 border-l-red-400 bg-red-500/10">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-lg">🚩</span>
+                                            <p className="text-base font-bold text-red-300">Feriado Nacional</p>
+                                        </div>
+                                        <p className="text-sm text-red-200/80 pl-7">{feriadoDiaSelecionado.nome}</p>
+                                    </div>
+                                )}
+                                {/* Visitas normais */}
+                                {visitasDia.map((visita) => {
                                 const config = resultadoConfig[visita.resultado] || defaultConfig;
                                 const StatusIcon = config.icon;
                                 const isPendente = visita.resultado === "Agendado";
@@ -451,7 +468,8 @@ const Calendario = () => {
                                         </div>
                                     </div>
                                 );
-                            })
+                            })}
+                            </>
                         )}
                     </div>
                 )}

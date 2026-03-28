@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import DoencasPragasModal from "@/components/DoencasPragasModal";
 import CooperadoSearch, { type CooperadoOption } from "@/components/CooperadoSearch";
+import ColaboradorSearch, { type ColaboradorOption } from "@/components/ColaboradorSearch";
 
 const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"] as const;
 
@@ -44,6 +45,16 @@ function calcularDataHoje(diaSemana: string): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * Formata a data do dia para exibição amigável: "DD/MM"
+ */
+function formatarDataDia(diaSemana: string): string {
+  const dataStr = calcularDataHoje(diaSemana);
+  if (!dataStr) return "";
+  const [, m, d] = dataStr.split("-");
+  return `${d}/${m}`;
+}
+
 type Visita = {
   id: number;
   dbId?: number;
@@ -61,6 +72,7 @@ type Visita = {
     valor: string;
     canal: string;
     matricula: string;
+    acompanhante?: ColaboradorOption | null;
   };
   extra?: boolean;
   registrado: boolean;
@@ -431,7 +443,7 @@ const Registro = () => {
             <SelectContent>
               {WEEKDAYS.map((day) => (
                 <SelectItem key={day} value={day}>
-                  {day}-feira
+                  {day}-feira {formatarDataDia(day)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -664,13 +676,24 @@ const Registro = () => {
                                 ))}
                               </SelectContent>
                             </Select>
-                            <Input
-                              placeholder="Matrícula de quem acompanhou"
-                              value={visita.negociacao.matricula}
-                              onChange={(e) =>
-                                updateNegociacao(visita.id, "matricula", e.target.value)
-                              }
-                              className="text-base"
+                            <ColaboradorSearch
+                              value={visita.negociacao.acompanhante || null}
+                              onChange={(colab) => {
+                                setVisitas((prev) =>
+                                  prev.map((v) => {
+                                    if (v.id !== visita.id || !v.negociacao) return v;
+                                    return {
+                                      ...v,
+                                      negociacao: {
+                                        ...v.negociacao,
+                                        matricula: colab?.matricula || "",
+                                        acompanhante: colab,
+                                      },
+                                      registrado: false,
+                                    };
+                                  })
+                                );
+                              }}
                               disabled={visita.registrado}
                             />
                           </div>

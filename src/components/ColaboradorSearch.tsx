@@ -3,20 +3,16 @@ import { Search, X, User, Loader2, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
-export type CooperadoOption = {
+export type ColaboradorOption = {
     id: number;
     nome: string;
     matricula: string;
-    filial: {
-        id: number;
-        nome: string;
-        cidade: string;
-    };
+    cargo: string;
 };
 
-type CooperadoSearchProps = {
-    value: CooperadoOption | null;
-    onChange: (cooperado: CooperadoOption | null) => void;
+type ColaboradorSearchProps = {
+    value: ColaboradorOption | null;
+    onChange: (colaborador: ColaboradorOption | null) => void;
     placeholder?: string;
     disabled?: boolean;
     className?: string;
@@ -34,19 +30,19 @@ function useIsMobile() {
 }
 
 /**
- * Componente de busca de cooperado com autocomplete.
+ * Componente de busca de colaborador (Equipe) com autocomplete.
  * Em mobile: abre um overlay fullscreen para facilitar a busca.
  * Em desktop: dropdown inline tradicional.
  */
-const CooperadoSearch = ({
+const ColaboradorSearch = ({
     value,
     onChange,
-    placeholder = "Informe o nome ou a matrícula do Cooperado",
+    placeholder = "Acompanhado por (nome ou matrícula)",
     disabled = false,
     className = "",
-}: CooperadoSearchProps) => {
+}: ColaboradorSearchProps) => {
     const [query, setQuery] = useState("");
-    const [results, setResults] = useState<CooperadoOption[]>([]);
+    const [results, setResults] = useState<ColaboradorOption[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -57,8 +53,8 @@ const CooperadoSearch = ({
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isMobile = useIsMobile();
 
-    // Buscar cooperados na API
-    const searchCooperados = useCallback(async (busca: string) => {
+    // Buscar colaboradores na API
+    const searchColaboradores = useCallback(async (busca: string) => {
         if (busca.trim().length < 2) {
             setResults([]);
             setIsOpen(false);
@@ -69,7 +65,7 @@ const CooperadoSearch = ({
         try {
             const token = localStorage.getItem("auth_token");
             const response = await fetch(
-                `/api/cooperados?busca=${encodeURIComponent(busca)}`,
+                `/api/equipe?busca=${encodeURIComponent(busca)}`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -79,12 +75,12 @@ const CooperadoSearch = ({
 
             if (!response.ok) throw new Error("Erro na busca");
 
-            const data: CooperadoOption[] = await response.json();
+            const data: ColaboradorOption[] = await response.json();
             setResults(data);
             setIsOpen(data.length > 0);
             setHighlightIndex(-1);
         } catch (error) {
-            console.error("Erro ao buscar cooperados:", error);
+            console.error("Erro ao buscar equipe:", error);
             setResults([]);
         } finally {
             setIsLoading(false);
@@ -98,13 +94,13 @@ const CooperadoSearch = ({
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            searchCooperados(val);
+            searchColaboradores(val);
         }, 300);
     };
 
-    // Selecionar cooperado
-    const handleSelect = (cooperado: CooperadoOption) => {
-        onChange(cooperado);
+    // Selecionar colaborador
+    const handleSelect = (colaborador: ColaboradorOption) => {
+        onChange(colaborador);
         setQuery("");
         setResults([]);
         setIsOpen(false);
@@ -190,11 +186,11 @@ const CooperadoSearch = ({
     // Renderizar a lista de resultados (compartilhado entre drawer e dropdown)
     const renderResults = () => (
         <>
-            {results.map((coop, index) => (
+            {results.map((colab, index) => (
                 <button
-                    key={coop.id}
+                    key={colab.id}
                     type="button"
-                    onClick={() => handleSelect(coop)}
+                    onClick={() => handleSelect(colab)}
                     className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors border-b border-white/10 last:border-b-0
                 ${index === highlightIndex
                             ? "bg-white/20 text-white"
@@ -205,11 +201,13 @@ const CooperadoSearch = ({
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                             <Badge variant="outline" className="text-xs font-mono px-1.5 py-0 flex-shrink-0 border-white/30 text-white bg-white/10">
-                                {coop.matricula}
+                                {colab.matricula}
                             </Badge>
-                            <span className="text-sm font-medium truncate text-white">{coop.nome}</span>
+                            <span className="text-sm font-medium truncate text-white">{colab.nome}</span>
                         </div>
-                        <span className="text-xs text-white/70">{coop.filial.nome}</span>
+                        {colab.cargo && (
+                            <span className="text-xs text-white/70">{colab.cargo}</span>
+                        )}
                     </div>
                 </button>
             ))}
@@ -225,9 +223,11 @@ const CooperadoSearch = ({
                     <span className="text-sm font-semibold text-white truncate block">
                         {value.matricula} — {value.nome}
                     </span>
-                    <span className="text-xs text-white/70 truncate block font-medium">
-                        {value.filial.nome}
-                    </span>
+                    {value.cargo && (
+                        <span className="text-xs text-white/70 truncate block font-medium">
+                            {value.cargo}
+                        </span>
+                    )}
                 </div>
                 <button
                     onClick={handleClear}
@@ -249,9 +249,11 @@ const CooperadoSearch = ({
                     <span className="text-sm font-semibold text-white truncate block">
                         {value.matricula} — {value.nome}
                     </span>
-                    <span className="text-xs text-white/70 truncate block font-medium">
-                        {value.filial.nome}
-                    </span>
+                    {value.cargo && (
+                        <span className="text-xs text-white/70 truncate block font-medium">
+                            {value.cargo}
+                        </span>
+                    )}
                 </div>
             </div>
         );
@@ -290,7 +292,7 @@ const CooperadoSearch = ({
                 {/* Desktop: sem resultados */}
                 {!isMobile && isOpen && query.trim().length >= 2 && results.length === 0 && !isLoading && (
                     <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-card shadow-lg px-4 py-3 text-sm text-muted-foreground text-center">
-                        Nenhum cooperado encontrado.
+                        Nenhum colaborador encontrado.
                     </div>
                 )}
             </div>
@@ -333,7 +335,7 @@ const CooperadoSearch = ({
 
                         {query.trim().length >= 2 && results.length === 0 && !isLoading && (
                             <div className="px-6 py-12 text-center text-white/60 text-sm">
-                                Nenhum cooperado encontrado.
+                                Nenhum colaborador encontrado.
                             </div>
                         )}
 
@@ -350,4 +352,4 @@ const CooperadoSearch = ({
     );
 };
 
-export default CooperadoSearch;
+export default ColaboradorSearch;

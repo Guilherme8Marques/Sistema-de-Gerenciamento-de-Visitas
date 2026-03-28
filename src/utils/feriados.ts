@@ -8,8 +8,12 @@ export function isFeriado(dateInput: string | Date): { isFeriado: boolean; nome?
   
   const holidays = hd.isHoliday(date);
   if (holidays && holidays.length > 0) {
-    // Retorna o nome do primeiro feriado público ou principal
-    return { isFeriado: true, nome: holidays[0].name };
+    // Filtra apenas feriados PÚBLICOS oficiais
+    // Ignora: 'observance' (Namorados, Dia dos Pais), 'optional' (Quarta de Cinzas)
+    const feriadoPublico = holidays.find((h: any) => h.type === 'public');
+    if (feriadoPublico) {
+      return { isFeriado: true, nome: feriadoPublico.name };
+    }
   }
   
   return { isFeriado: false };

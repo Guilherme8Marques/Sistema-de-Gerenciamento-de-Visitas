@@ -16,6 +16,7 @@ import registroRoutes from "./routes/registro.js";
 import relatoriosRoutes from "./routes/relatorios.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import adminRoutes from "./routes/admin.js";
+import equipeRoutes from "./routes/equipe.js";
 import { sincronizarUsuariosExcel, iniciarObservadorExcel } from "./sync-excel.js";
 import { sincronizarCooperadosCSV, iniciarObservadorCooperados } from "./sync-cooperados.js";
 
@@ -45,6 +46,7 @@ app.use("/api/registro", registroRoutes);
 app.use("/api/relatorios", relatoriosRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/equipe", equipeRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

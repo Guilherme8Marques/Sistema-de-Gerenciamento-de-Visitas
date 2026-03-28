@@ -41,6 +41,16 @@ function calcularData(semana: "atual" | "proxima", diaSemana: string): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * Formata a data do dia para exibição amigável: "DD/MM"
+ */
+function formatarDataDia(semana: "atual" | "proxima", diaSemana: string): string {
+  const dataStr = calcularData(semana, diaSemana);
+  if (!dataStr) return "";
+  const [, m, d] = dataStr.split("-");
+  return `${d}/${m}`;
+}
+
 type Atividade = {
   id: number;
   dbId?: number; // ID no servidor (quando salva no banco)
@@ -334,7 +344,7 @@ const Planejamento = () => {
               <SelectContent>
                 {WEEKDAYS.map((day) => (
                   <SelectItem key={day} value={day}>
-                    {day}-feira
+                    {day}-feira {formatarDataDia(semana, day)}
                   </SelectItem>
                 ))}
               </SelectContent>
