@@ -118,7 +118,7 @@ async function importar() {
 
     // Tentar encontrar o XLSX de usuários
     let usuariosPath = findFile(DADOS_DIR, /RELAÇÃO.*\.xlsx$/i) || findFile(DADOS_DIR, /\.xlsx$/i);
-    
+
     let usuariosRecords: any[] = [];
     if (usuariosPath && fs.existsSync(usuariosPath)) {
         const wb = xlsx.readFile(usuariosPath);
@@ -144,10 +144,10 @@ async function importar() {
     db.run("DELETE FROM propriedades;");
     db.run("DELETE FROM cooperados;");
     db.run("DELETE FROM filiais;");
-    
+
     // Reabilitar chaves estrangeiras
     db.run("PRAGMA foreign_keys=ON;");
-    
+
     console.log("🗑️  Dados antigos removidos (seed)\n");
 
     // --- Passo 0: Importar Celulares Autorizados ---
@@ -331,6 +331,7 @@ async function importar() {
     console.log(`   Filiais:       ${filialCount}`);
     console.log(`   Cooperados:    ${cooperadoCount}`);
     console.log(`   Propriedades:  ${propCount}`);
+    console.log(`   Equipe Vendas: ${equipeCount}`);
 
     // Verificação rápida
     const topCoops = db.exec(
@@ -352,6 +353,24 @@ async function importar() {
     }
 
     console.log("\n🎉 Importação concluída com sucesso!");
+
+    // --- Passo Final: Limpeza de Arquivos ---
+    console.log("\n🧹 Limpando pasta 'dados'...");
+    try {
+        const files = fs.readdirSync(DADOS_DIR);
+        let deletedCount = 0;
+        for (const file of files) {
+            const filePath = path.join(DADOS_DIR, file);
+            // Deletar apenas arquivos Excel e CSV
+            if (file.toLowerCase().endsWith(".xlsx") || file.toLowerCase().endsWith(".csv")) {
+                fs.unlinkSync(filePath);
+                deletedCount++;
+            }
+        }
+        console.log(`✨ ${deletedCount} arquivos removidos. Pasta 'dados' está limpa.`);
+    } catch (e) {
+        console.warn("⚠️  Erro ao limpar a pasta 'dados':", e);
+    }
 }
 
 importar().catch(console.error);
