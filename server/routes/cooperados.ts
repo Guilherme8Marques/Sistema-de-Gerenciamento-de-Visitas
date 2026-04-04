@@ -28,7 +28,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
                 LOWER(
                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                    REPLACE(REPLACE(REPLACE(REPLACE(
+                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
                     REPLACE(REPLACE(REPLACE(REPLACE(c.nome,
                     'Á','A'), 'À','A'), 'Â','A'), 'Ã','A'),
