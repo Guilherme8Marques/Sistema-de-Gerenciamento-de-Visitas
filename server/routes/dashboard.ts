@@ -5,11 +5,11 @@ import { authMiddleware } from "../middleware/auth.js";
 const router = Router();
 
 /**
- * GET /api/dashboard/colaboradores?inicio=2026-02-23&fim=2026-02-27
- * Lista colaboradores ativos no período (com visitas ou planejamento).
+ * GET /api/dashboard/equipes?inicio=2026-02-23&fim=2026-02-27
+ * Lista as equipes (fornecedores) com dados no período.
  */
 router.get(
-    "/colaboradores",
+    "/equipes",
     authMiddleware,
     (req: Request, res: Response): void => {
         try {
@@ -23,15 +23,58 @@ router.get(
             }
 
             const result = db.exec(
+                `SELECT DISTINCT fornecedor
+                 FROM users
+                 WHERE fornecedor IS NOT NULL AND fornecedor != ''
+                 ORDER BY fornecedor`
+            );
+
+            if (result.length === 0) {
+                res.json([]);
+                return;
+            }
+
+            const equipes = result[0].values.map((row) => row[0]);
+            res.json(equipes);
+        } catch (error) {
+            console.error("Erro ao listar equipes:", error);
+            res.status(500).json({ error: "Erro interno do servidor" });
+        }
+    }
+);
+
+/**
+ * GET /api/dashboard/colaboradores?inicio=2026-02-23&fim=2026-02-27
+ * Lista colaboradores ativos no período (com visitas ou planejamento).
+ */
+router.get(
+    "/colaboradores",
+    authMiddleware,
+    (req: Request, res: Response): void => {
+        try {
+            const db = getDb();
+            const inicio = req.query.inicio as string;
+            const fim = req.query.fim as string;
+            const equipe = req.query.equipe as string | undefined;
+
+            if (!inicio || !fim) {
+                res.status(400).json({ error: "Parâmetros 'inicio' e 'fim' são obrigatórios" });
+                return;
+            }
+
+            const equipeFilter = equipe ? " AND u.fornecedor = ?" : "";
+            const paramEq = equipe ? [equipe] : [];
+
+            const result = db.exec(
                 `SELECT DISTINCT u.id, u.nome, u.matricula
                  FROM users u
                  WHERE u.id IN (
                      SELECT user_id FROM visitas WHERE data_visita >= ? AND data_visita <= ?
                      UNION
                      SELECT user_id FROM planejamento WHERE data_planejada >= ? AND data_planejada <= ?
-                 )
+                 )${equipeFilter}
                  ORDER BY u.nome`,
-                [inicio, fim, inicio, fim]
+                [inicio, fim, inicio, fim, ...paramEq]
             );
 
             if (result.length === 0) {
@@ -67,14 +110,20 @@ router.get(
             const inicio = req.query.inicio as string;
             const fim = req.query.fim as string;
             const colaboradorId = req.query.colaborador_id as string | undefined;
+            const equipe = req.query.equipe as string | undefined;
 
             if (!inicio || !fim) {
                 res.status(400).json({ error: "Parâmetros 'inicio' e 'fim' são obrigatórios" });
                 return;
             }
 
-            const userFilter = colaboradorId ? " AND user_id = ?" : "";
-            const userParam = colaboradorId ? [parseInt(colaboradorId, 10)] : [];
+            let userFilter = colaboradorId ? " AND user_id = ?" : "";
+            let userParam: any[] = colaboradorId ? [parseInt(colaboradorId, 10)] : [];
+
+            if (equipe) {
+                userFilter += " AND user_id IN (SELECT id FROM users WHERE fornecedor = ?)";
+                userParam.push(equipe);
+            }
 
             // Total de visitas planejadas no período
             const planejResult = db.exec(
@@ -151,6 +200,7 @@ router.get(
             const inicio = req.query.inicio as string;
             const fim = req.query.fim as string;
             const colaboradorId = req.query.colaborador_id as string | undefined;
+            const equipe = req.query.equipe as string | undefined;
 
             if (!inicio || !fim) {
                 res.status(400).json({ error: "Parâmetros 'inicio' e 'fim' são obrigatórios" });
@@ -159,8 +209,13 @@ router.get(
 
             const userFilterV = colaboradorId ? " AND v.user_id = ?" : "";
             const userFilterP = colaboradorId ? " AND user_id = ?" : "";
-            const userFilterU = colaboradorId ? " AND u.id = ?" : "";
-            const userParam = colaboradorId ? [parseInt(colaboradorId, 10)] : [];
+            let userFilterU = colaboradorId ? " AND u.id = ?" : "";
+            let userParam: any[] = colaboradorId ? [parseInt(colaboradorId, 10)] : [];
+
+            if (equipe) {
+                userFilterU += " AND u.fornecedor = ?";
+                userParam.push(equipe);
+            }
 
             // Ranking: consultores com visitas OU apenas planejamento
             const result = db.exec(
@@ -171,7 +226,8 @@ router.get(
                     COALESCE(v_stats.total_visitas, 0) as total_visitas,
                     COALESCE(v_stats.realizadas, 0) as realizadas,
                     COALESCE(v_stats.negociacoes, 0) as negociacoes,
-                    COALESCE(p_stats.planejadas, 0) as planejadas
+                    COALESCE(p_stats.planejadas, 0) as planejadas,
+                    u.fornecedor
                 FROM users u
                 LEFT JOIN (
                     SELECT
@@ -216,6 +272,7 @@ router.get(
                     planejadas,
                     pct_conclusao: planejadas > 0
                         ? Math.round((realizadas / planejadas) * 100) : 0,
+                    fornecedor: row[7] || "-",
                 };
             });
 
@@ -241,17 +298,23 @@ router.get(
             const inicio = req.query.inicio as string;
             const fim = req.query.fim as string;
             const colaboradorId = req.query.colaborador_id as string | undefined;
+            const equipe = req.query.equipe as string | undefined;
 
             if (!inicio || !fim) {
                 res.status(400).json({ error: "Parâmetros 'inicio' e 'fim' são obrigatórios" });
                 return;
             }
 
-            const userFilter = colaboradorId ? " AND v.user_id = ?" : "";
-            const userParam = colaboradorId ? [parseInt(colaboradorId, 10)] : [];
+            let userFilter = colaboradorId ? " AND v.user_id = ?" : "";
+            let userParam: any[] = colaboradorId ? [parseInt(colaboradorId, 10)] : [];
+
+            if (equipe) {
+                userFilter += " AND u.fornecedor = ?";
+                userParam.push(equipe);
+            }
 
             const result = db.exec(
-                `SELECT 
+                 `SELECT 
                     v.id,
                     v.data_visita,
                     v.resultado,
@@ -259,7 +322,9 @@ router.get(
                     c.nome as nome_cooperado,
                     v.negociacao_dados,
                     p.evento_nome,
-                    p.tipo as plan_tipo
+                    p.tipo as plan_tipo,
+                    u.matricula as tdm_matricula,
+                    u.fornecedor
                  FROM visitas v
                  JOIN users u ON v.user_id = u.id
                  LEFT JOIN cooperados c ON v.cooperado_id = c.id
@@ -295,7 +360,9 @@ router.get(
                     nome_cooperado: nomeCooperado,
                     tipo_moeda: negociacao?.tipoMoeda || '-',
                     valor: negociacao?.valor || '-',
-                    canal: negociacao?.canal || '-'
+                    canal: negociacao?.canal || '-',
+                    tdm_matricula: row[8] || '-',
+                    fornecedor: row[9] || '-'
                 };
             });
 
@@ -322,14 +389,20 @@ router.get(
             const inicio = req.query.inicio as string;
             const fim = req.query.fim as string;
             const colaboradorId = req.query.colaborador_id as string | undefined;
+            const equipe = req.query.equipe as string | undefined;
 
             if (!inicio || !fim) {
                 res.status(400).json({ error: "Parâmetros 'inicio' e 'fim' são obrigatórios" });
                 return;
             }
 
-            const userFilter = colaboradorId ? " AND p.user_id = ?" : "";
-            const userParam = colaboradorId ? [parseInt(colaboradorId, 10)] : [];
+            let userFilter = colaboradorId ? " AND p.user_id = ?" : "";
+            let userParam: any[] = colaboradorId ? [parseInt(colaboradorId, 10)] : [];
+
+            if (equipe) {
+                userFilter += " AND u.fornecedor = ?";
+                userParam.push(equipe);
+            }
 
             // Buscar todos os planejamentos do período com dados do consultor e cooperado
             const result = db.exec(
@@ -343,7 +416,8 @@ router.get(
                     u.matricula as user_matricula,
                     c.nome as cooperado_nome,
                     c.matricula as cooperado_matricula,
-                    f.nome as filial_nome
+                    f.nome as filial_nome,
+                    u.fornecedor
                 FROM planejamento p
                 JOIN users u ON p.user_id = u.id
                 LEFT JOIN cooperados c ON p.cooperado_id = c.id
@@ -363,6 +437,7 @@ router.get(
                 id: number;
                 nome: string;
                 matricula: string;
+                fornecedor: string;
                 planejamentos: {
                     date: string;
                     empresas: string[];
@@ -393,6 +468,7 @@ router.get(
                         id: userId,
                         nome: row[5] as string,
                         matricula: row[6] as string,
+                        fornecedor: (row[10] as string) || "-",
                         planejamentos: [],
                     });
                 }

@@ -50,6 +50,7 @@ interface RankingItem {
     negociacoes: number;
     planejadas: number;
     pct_conclusao: number;
+    fornecedor: string;
 }
 
 interface PlanejamentoDia {
@@ -61,6 +62,7 @@ interface Consultor {
     id: number;
     nome: string;
     matricula: string;
+    fornecedor: string;
     planejamentos: PlanejamentoDia[];
 }
 
@@ -70,6 +72,8 @@ interface HistoricoItem {
     resultado: string;
     nome_consultor: string;
     nome_cooperado: string;
+    fornecedor: string;
+    tdm_matricula: string;
     tipo_moeda: string | null;
     valor: string | null;
     canal: string | null;
@@ -111,6 +115,7 @@ export default function Relatorios() {
     const [anoSelecionado, setAnoSelecionado] = useState<number>(new Date().getFullYear());
     const [semanaSelecionada, setSemanaSelecionada] = useState<string>("todas");
     const [colaboradorSelecionado, setColaboradorSelecionado] = useState<string>("todos");
+    const [equipeSelecionada, setEquipeSelecionada] = useState<string>("todas");
 
     // Autocomplete de colaborador
     const [colabSearch, setColabSearch] = useState("");
@@ -119,6 +124,7 @@ export default function Relatorios() {
 
     // Lista de colaboradores para o filtro
     const [colaboradoresLista, setColaboradoresLista] = useState<ColaboradorOption[]>([]);
+    const [equipesLista, setEquipesLista] = useState<string[]>([]);
 
     // Dados derivados do período
     const [periodo, setPeriodo] = useState<PeriodoInfo>({
@@ -150,10 +156,15 @@ export default function Relatorios() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    const normalizeLocal = (str: string) =>
+        str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
+
+    const searchNormalized = normalizeLocal(colabSearch);
+
     const colaboradoresFiltrados = colabSearch.trim()
         ? colaboradoresLista.filter(c =>
-            c.nome.toLowerCase().includes(colabSearch.toLowerCase()) ||
-            c.matricula.toLowerCase().includes(colabSearch.toLowerCase())
+            normalizeLocal(c.nome).includes(searchNormalized) ||
+            normalizeLocal(c.matricula).includes(searchNormalized)
         )
         : colaboradoresLista;
 
@@ -165,77 +176,104 @@ export default function Relatorios() {
        1. Helpers de Data — Semanas do MÊS (1, 2, 3...)
        ──────────────────────────────────────────── */
     const recalcularDatas = useCallback(() => {
-        const baseDate = new Date(anoSelecionado, mesSelecionado, 1);
+        let baseDate: Date;
         let dataInicialFiltro: Date;
         let dataFinalFiltro: Date;
+        let labelPeriodoAux = "";
+        let semanasDoMes: any[] = [];
 
-        const inicioMesBase = startOfMonth(baseDate);
-        const fimMesBase = endOfMonth(baseDate);
+        if (mesSelecionado === -1) {
+            // "Todos os Meses" do Ano
+            baseDate = new Date(anoSelecionado, 0, 1);
+            dataInicialFiltro = baseDate;
+            dataFinalFiltro = new Date(anoSelecionado, 11, 31, 23, 59, 59);
+            labelPeriodoAux = `Ano Inteiro`;
+            
+            if (semanaSelecionada !== "todas") {
+                setSemanaSelecionada("todas");
+                return;
+            }
+        } else {
+            baseDate = new Date(anoSelecionado, mesSelecionado, 1);
+            const inicioMesBase = startOfMonth(baseDate);
+            const fimMesBase = endOfMonth(baseDate);
 
-        // Compute weeks of the month (1-based index)
-        const semanas = eachWeekOfInterval(
-            { start: inicioMesBase, end: fimMesBase },
-            { weekStartsOn: 1 }
-        );
+            // Compute weeks of the month (1-based index)
+            const semanas = eachWeekOfInterval(
+                { start: inicioMesBase, end: fimMesBase },
+                { weekStartsOn: 1 }
+            );
 
-        // Map to month-relative index: "Semana 1", "Semana 2", etc.
-        const semanasDoMes = semanas.map((d, idx) => ({
-            index: idx + 1,
-            label: `Semana ${idx + 1}`,
-            startDate: d,
-        }));
+            // Map to month-relative index: "Semana 1", "Semana 2", etc.
+            semanasDoMes = semanas.map((d, idx) => {
+                const startStr = format(startOfWeek(d, { weekStartsOn: 1 }), "dd/MM");
+                const endStr = format(endOfWeek(d, { weekStartsOn: 1 }), "dd/MM");
+                return {
+                    index: idx + 1,
+                    label: `Semana ${idx + 1} (${startStr} a ${endStr})`,
+                    startDate: d,
+                };
+            });
 
-        let labelPeriodoAux = `${MONTH_NAMES[mesSelecionado]} ${anoSelecionado}`;
+            labelPeriodoAux = `${MONTH_NAMES[mesSelecionado]} ${anoSelecionado}`;
 
-        if (semanaSelecionada !== "todas") {
-            const numSem = parseInt(semanaSelecionada, 10);
-            const semanaObj = semanasDoMes.find(s => s.index === numSem);
+            if (semanaSelecionada !== "todas") {
+                const numSem = parseInt(semanaSelecionada, 10);
+                const semanaObj = semanasDoMes.find(s => s.index === numSem);
 
-            if (semanaObj) {
-                dataInicialFiltro = startOfWeek(semanaObj.startDate, { weekStartsOn: 1 });
-                dataFinalFiltro = endOfWeek(semanaObj.startDate, { weekStartsOn: 1 });
-                labelPeriodoAux = `Semana ${numSem} - ${MONTH_NAMES[mesSelecionado]}`;
+                if (semanaObj) {
+                    dataInicialFiltro = startOfWeek(semanaObj.startDate, { weekStartsOn: 1 });
+                    dataFinalFiltro = endOfWeek(semanaObj.startDate, { weekStartsOn: 1 });
+                    labelPeriodoAux = `Semana ${numSem} - ${MONTH_NAMES[mesSelecionado]}`;
+                } else {
+                    dataInicialFiltro = inicioMesBase;
+                    dataFinalFiltro = fimMesBase;
+                }
             } else {
                 dataInicialFiltro = inicioMesBase;
                 dataFinalFiltro = fimMesBase;
             }
-        } else {
-            dataInicialFiltro = inicioMesBase;
-            dataFinalFiltro = fimMesBase;
         }
 
         const diasDoIntervalo = eachDayOfInterval({ start: dataInicialFiltro, end: dataFinalFiltro });
 
-        const diasProcessados = diasDoIntervalo.map(date => ({
+        let diasProcessados = diasDoIntervalo.map(date => ({
             dateKey: format(date, "yyyy-MM-dd"),
             dayNum: date.getDate(),
             weekday: format(date, "EEE", { locale: ptBR }),
             dayOfWeek: date.getDay(), // 0=dom, 1=seg, ..., 6=sab
         }));
 
+        // Optimize: Se aba="Todos os Meses", não renderizamos dias
+        if (mesSelecionado === -1) {
+            diasProcessados = [];
+        }
+
         // Auto-select current week on first load
-        const agora = new Date();
-        if (isSameMonth(agora, baseDate) && semanaSelecionada !== "todas") {
-            const numSemSelecionada = parseInt(semanaSelecionada, 10);
-            if (!semanasDoMes.find(s => s.index === numSemSelecionada)) {
-                // Find current week
-                const agoraWeekISO = getWeek(agora, { weekStartsOn: 1 });
-                const currentSemana = semanasDoMes.find(s =>
-                    getWeek(s.startDate, { weekStartsOn: 1 }) === agoraWeekISO
-                );
-                if (currentSemana) {
-                    setSemanaSelecionada(String(currentSemana.index));
-                } else {
-                    setSemanaSelecionada("todas");
+        if (mesSelecionado !== -1) {
+            const agora = new Date();
+            if (isSameMonth(agora, baseDate) && semanaSelecionada !== "todas") {
+                const numSemSelecionada = parseInt(semanaSelecionada, 10);
+                if (!semanasDoMes.find(s => s.index === numSemSelecionada)) {
+                    // Find current week
+                    const agoraWeekISO = getWeek(agora, { weekStartsOn: 1 });
+                    const currentSemana = semanasDoMes.find(s =>
+                        getWeek(s.startDate, { weekStartsOn: 1 }) === agoraWeekISO
+                    );
+                    if (currentSemana) {
+                        setSemanaSelecionada(String(currentSemana.index));
+                    } else {
+                        setSemanaSelecionada("todas");
+                    }
+                    return;
                 }
-                return;
             }
         }
 
         setPeriodo({
             inicio: format(dataInicialFiltro, "yyyy-MM-dd"),
             fim: format(dataFinalFiltro, "yyyy-MM-dd"),
-            labelMes: MONTH_NAMES[mesSelecionado],
+            labelMes: mesSelecionado === -1 ? `Todos os Meses` : MONTH_NAMES[mesSelecionado],
             labelPeriodo: labelPeriodoAux,
             diasProcessados,
             semanasNoMes: semanasDoMes.map(s => ({ index: s.index, label: s.label }))
@@ -276,21 +314,25 @@ export default function Relatorios() {
             const headers = { Authorization: `Bearer ${token}` };
             const { inicio, fim } = periodo;
             const colabParam = colaboradorSelecionado !== "todos" ? `&colaborador_id=${colaboradorSelecionado}` : "";
+            const equipeParam = equipeSelecionada !== "todas" ? `&equipe=${equipeSelecionada}` : "";
+            const queryParams = `?inicio=${inicio}&fim=${fim}${colabParam}${equipeParam}`;
 
-            const [resumoResp, rankingResp, historicoResp, planResp, colabResp] = await Promise.all([
-                fetch(`/api/dashboard/resumo?inicio=${inicio}&fim=${fim}${colabParam}`, { headers }),
-                fetch(`/api/dashboard/ranking?inicio=${inicio}&fim=${fim}${colabParam}`, { headers }),
-                fetch(`/api/dashboard/historico?inicio=${inicio}&fim=${fim}${colabParam}`, { headers }),
-                fetch(`/api/dashboard/planejamento-semanal?inicio=${inicio}&fim=${fim}${colabParam}`, { headers }),
-                fetch(`/api/dashboard/colaboradores?inicio=${inicio}&fim=${fim}`, { headers }),
+            const [resumoResp, rankingResp, historicoResp, planResp, colabResp, equipesResp] = await Promise.all([
+                fetch(`/api/dashboard/resumo${queryParams}`, { headers }),
+                fetch(`/api/dashboard/ranking${queryParams}`, { headers }),
+                fetch(`/api/dashboard/historico${queryParams}`, { headers }),
+                fetch(`/api/dashboard/planejamento-semanal${queryParams}`, { headers }),
+                fetch(`/api/dashboard/colaboradores?inicio=${inicio}&fim=${fim}${equipeParam}`, { headers }),
+                fetch(`/api/dashboard/equipes?inicio=${inicio}&fim=${fim}`, { headers }),
             ]);
 
-            const [resumoData, rankingData, historicoData, planData, colabData] = await Promise.all([
+            const [resumoData, rankingData, historicoData, planData, colabData, equipesData] = await Promise.all([
                 resumoResp.ok ? resumoResp.json() : null,
                 rankingResp.ok ? rankingResp.json() : [],
                 historicoResp.ok ? historicoResp.json() : [],
                 planResp.ok ? planResp.json() : [],
                 colabResp.ok ? colabResp.json() : [],
+                equipesResp.ok ? equipesResp.json() : [],
             ]);
 
             setResumo(resumoData);
@@ -298,6 +340,7 @@ export default function Relatorios() {
             setHistorico(historicoData);
             setConsultoresPlan(planData);
             setColaboradoresLista(colabData);
+            setEquipesLista(equipesData);
 
         } catch (error) {
             console.error("Erro ao carregar dados dos relatórios", error);
@@ -305,7 +348,7 @@ export default function Relatorios() {
         } finally {
             setCarregando(false);
         }
-    }, [periodo, colaboradorSelecionado, navigate]);
+    }, [periodo, colaboradorSelecionado, equipeSelecionada, navigate]);
 
     useEffect(() => {
         carregarDados();
@@ -412,6 +455,89 @@ export default function Relatorios() {
     };
 
     /* ────────────────────────────────────────────
+       Filtros Inline da Tabela
+       ──────────────────────────────────────────── */
+    const renderFiltrosTabela = () => (
+        <div className="flex items-center gap-2 sm:gap-3">
+            {/* Filtro de Equipe */}
+            <div className="flex items-center gap-1 sm:gap-2">
+                <Users className="h-4 w-4 text-primary-foreground/50 hidden md:block" />
+                <Select value={equipeSelecionada} onValueChange={(val) => { setEquipeSelecionada(val); setColaboradorSelecionado("todos"); }}>
+                    <SelectTrigger className="w-[110px] sm:w-[140px] h-8 text-xs bg-black/20 text-white font-bold border-white/10 shadow-sm rounded-full">
+                        <SelectValue placeholder="Equipe" />
+                    </SelectTrigger>
+                    <SelectContent className="glass-card-strong border-white/10">
+                        <SelectItem value="todas" className="text-primary-foreground text-xs">Todas as Equipes</SelectItem>
+                        {equipesLista.map(e => (
+                            <SelectItem key={e} value={e} className="text-primary-foreground text-xs">{e}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {/* Filtro de Colaborador */}
+            <div className="relative z-50 flex items-center" ref={colabRef}>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary-foreground/50 pointer-events-none hidden sm:block" />
+                    <Input
+                        placeholder="Colaborador..."
+                        className="w-[130px] sm:w-[160px] h-8 text-xs sm:pl-8 pr-8 bg-black/20 text-white font-bold border-white/10 shadow-sm rounded-full placeholder:text-white/40"
+                        value={colaboradorSelecionado === "todos" ? colabSearch : colaboradorNomeSelecionado}
+                        onChange={(e) => {
+                            setColabSearch(e.target.value);
+                            setColaboradorSelecionado("todos");
+                            setColabDropdownOpen(true);
+                        }}
+                        onFocus={() => setColabDropdownOpen(true)}
+                    />
+                    {colaboradorSelecionado !== "todos" && (
+                        <button
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-white/10 transition-colors"
+                            onClick={() => {
+                                setColaboradorSelecionado("todos");
+                                setColabSearch("");
+                            }}
+                        >
+                            <X className="h-3.5 w-3.5 text-primary-foreground/60" />
+                        </button>
+                    )}
+                </div>
+                {colabDropdownOpen && (
+                    <div className="absolute top-full right-0 mt-1 w-[220px] sm:w-[250px] max-h-[250px] overflow-y-auto glass-card-strong border border-white/10 rounded-lg shadow-xl">
+                        <button
+                            className={`w-full text-left px-3 py-2 text-xs font-bold hover:bg-white/10 transition-colors text-primary-foreground ${colaboradorSelecionado === "todos" ? "bg-white/10" : ""}`}
+                            onClick={() => {
+                                setColaboradorSelecionado("todos");
+                                setColabSearch("");
+                                setColabDropdownOpen(false);
+                            }}
+                        >
+                            Todos os Colaboradores
+                        </button>
+                        {colaboradoresFiltrados.map(c => (
+                            <button
+                                key={c.id}
+                                className={`w-full text-left px-3 py-2 text-xs hover:bg-white/10 transition-colors text-primary-foreground flex flex-col items-start ${colaboradorSelecionado === String(c.id) ? "bg-white/10 font-bold" : ""}`}
+                                onClick={() => {
+                                    setColaboradorSelecionado(String(c.id));
+                                    setColabSearch("");
+                                    setColabDropdownOpen(false);
+                                }}
+                            >
+                                <span className="font-semibold">{c.nome}</span>
+                                <span className="text-white/40 text-[10px] truncate w-full">Mat: {c.matricula}</span>
+                            </button>
+                        ))}
+                        {colaboradoresFiltrados.length === 0 && (
+                            <div className="px-3 py-2 text-xs text-white/40">Nenhum encontrado</div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    /* ────────────────────────────────────────────
        Render
        ──────────────────────────────────────────── */
 
@@ -480,10 +606,11 @@ export default function Relatorios() {
                         <div className="flex items-center gap-2">
                             <CalendarDays className="h-4 w-4 text-primary-foreground/60" />
                             <Select value={String(mesSelecionado)} onValueChange={(val) => setMesSelecionado(parseInt(val, 10))}>
-                                <SelectTrigger className="w-[130px] h-9 text-xs glass-card text-foreground font-bold border-white/20 shadow-sm">
+                                <SelectTrigger className="w-[150px] h-9 text-xs glass-card text-foreground font-bold border-white/20 shadow-sm">
                                     <SelectValue placeholder="Mês" />
                                 </SelectTrigger>
                                 <SelectContent className="glass-card-strong border-white/10">
+                                    <SelectItem value="-1" className="text-primary-foreground font-bold">Todos os Meses</SelectItem>
                                     {MONTH_NAMES.map((m, idx) => (
                                         <SelectItem key={m} value={String(idx)} className="text-primary-foreground">
                                             {m}
@@ -498,8 +625,8 @@ export default function Relatorios() {
                         {/* Filtro de Semana */}
                         <div className="flex items-center gap-2">
                             <Filter className="h-4 w-4 text-primary-foreground/40" />
-                            <Select value={semanaSelecionada} onValueChange={(val) => setSemanaSelecionada(val)}>
-                                <SelectTrigger className="w-[150px] h-9 text-xs glass-card text-foreground font-bold border-white/20 shadow-sm">
+                            <Select value={semanaSelecionada} onValueChange={(val) => setSemanaSelecionada(val)} disabled={mesSelecionado === -1}>
+                                <SelectTrigger className="w-[150px] sm:w-[220px] h-9 text-xs glass-card text-foreground font-bold border-white/20 shadow-sm disabled:opacity-50">
                                     <SelectValue placeholder="Semana" />
                                 </SelectTrigger>
                                 <SelectContent className="glass-card-strong border-white/10">
@@ -511,68 +638,6 @@ export default function Relatorios() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                        </div>
-
-                        <div className="w-px h-6 bg-white/20 hidden sm:block" />
-
-                        {/* Filtro de Colaborador — Autocomplete */}
-                        <div className="relative" ref={colabRef}>
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary-foreground/40 pointer-events-none" />
-                                <Input
-                                    placeholder="Buscar colaborador..."
-                                    className="w-[200px] h-9 text-xs pl-8 pr-8 glass-card text-foreground font-bold border-white/20 shadow-sm"
-                                    value={colaboradorSelecionado === "todos" ? colabSearch : colaboradorNomeSelecionado}
-                                    onChange={(e) => {
-                                        setColabSearch(e.target.value);
-                                        setColaboradorSelecionado("todos");
-                                        setColabDropdownOpen(true);
-                                    }}
-                                    onFocus={() => setColabDropdownOpen(true)}
-                                />
-                                {colaboradorSelecionado !== "todos" && (
-                                    <button
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-white/10 transition-colors"
-                                        onClick={() => {
-                                            setColaboradorSelecionado("todos");
-                                            setColabSearch("");
-                                        }}
-                                    >
-                                        <X className="h-3.5 w-3.5 text-primary-foreground/60" />
-                                    </button>
-                                )}
-                            </div>
-                            {colabDropdownOpen && (
-                                <div className="absolute top-full right-0 mt-1 w-[250px] max-h-[200px] overflow-y-auto glass-card-strong border border-white/10 rounded-lg shadow-xl z-50">
-                                    <button
-                                        className={`w-full text-left px-3 py-2 text-xs font-bold hover:bg-white/10 transition-colors text-primary-foreground ${colaboradorSelecionado === "todos" ? "bg-white/10" : ""}`}
-                                        onClick={() => {
-                                            setColaboradorSelecionado("todos");
-                                            setColabSearch("");
-                                            setColabDropdownOpen(false);
-                                        }}
-                                    >
-                                        Todos os Colaboradores
-                                    </button>
-                                    {colaboradoresFiltrados.map(c => (
-                                        <button
-                                            key={c.id}
-                                            className={`w-full text-left px-3 py-2 text-xs hover:bg-white/10 transition-colors text-primary-foreground ${colaboradorSelecionado === String(c.id) ? "bg-white/10 font-bold" : ""}`}
-                                            onClick={() => {
-                                                setColaboradorSelecionado(String(c.id));
-                                                setColabSearch("");
-                                                setColabDropdownOpen(false);
-                                            }}
-                                        >
-                                            <span className="font-semibold">{c.nome}</span>
-                                            <span className="text-white/40 ml-2">({c.matricula})</span>
-                                        </button>
-                                    ))}
-                                    {colaboradoresFiltrados.length === 0 && (
-                                        <div className="px-3 py-2 text-xs text-white/40">Nenhum colaborador encontrado</div>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -613,18 +678,22 @@ export default function Relatorios() {
                                 <div className="glass-card-strong rounded-xl shadow-lg overflow-hidden border border-white/10">
                                     <div className="flex items-center justify-between px-5 py-4 bg-primary border-b border-white/10">
                                         <h2 className="text-base font-bold text-primary-foreground flex items-center gap-2 font-display">
-                                            🏆 Ranking de Colaboradores
+                                            <Trophy className="hidden md:block h-5 w-5 text-yellow-400" />
+                                            <span className="hidden sm:inline">Ranking de Colaboradores</span>
                                         </h2>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={exportDashboard}
-                                            disabled={ranking.length === 0}
-                                            className="h-8 text-xs font-bold border-white/20 text-white bg-white/5 hover:bg-white/10"
-                                        >
-                                            <Download className="h-3.5 w-3.5 mr-2" />
-                                            Exportar
-                                        </Button>
+                                        <div className="flex items-center gap-3">
+                                            {renderFiltrosTabela()}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={exportDashboard}
+                                                disabled={ranking.length === 0}
+                                                className="h-8 text-xs font-bold border-white/20 text-white bg-white/5 hover:bg-white/10 hidden md:flex"
+                                            >
+                                                <Download className="h-3.5 w-3.5 mr-2" />
+                                                Exportar
+                                            </Button>
+                                        </div>
                                     </div>
 
                                     {ranking.length === 0 ? (
@@ -632,18 +701,19 @@ export default function Relatorios() {
                                             Sem dados para este período.
                                         </div>
                                     ) : (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left border-separate border-spacing-0">
+                                        <div className="overflow-x-auto w-full">
+                                            <table className="w-full text-left border-separate border-spacing-0 table-fixed min-w-[900px]">
                                                 <thead>
                                                     <tr className="bg-black/30 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
-                                                        <th className="px-4 py-3 text-center border-b border-white/10 w-14">#</th>
-                                                        <th className="px-4 py-3 border-b border-white/10">Colaborador</th>
-                                                        <th className="px-3 py-3 border-b border-white/10 text-center">Matrícula</th>
-                                                        <th className="px-3 py-3 border-b border-white/10 text-center">Planejadas</th>
-                                                        <th className="px-3 py-3 border-b border-white/10 text-center">Realizadas</th>
-                                                        <th className="px-3 py-3 border-b border-white/10 text-center">Negociações</th>
-                                                        <th className="px-3 py-3 border-b border-white/10 text-center">Vol. Total</th>
-                                                        <th className="px-3 py-3 border-b border-white/10 text-center">% Conclusão</th>
+                                                        <th className="px-3 py-3 text-center border-b border-white/10 w-12">#</th>
+                                                        <th className="px-3 py-3 border-b border-white/10 text-center w-24">Matrícula</th>
+                                                        <th className="px-4 py-3 border-b border-white/10 w-64">Colaborador</th>
+                                                        <th className="px-4 py-3 border-b border-white/10 w-32">Equipe</th>
+                                                        <th className="px-3 py-3 border-b border-white/10 text-center w-28">Planejadas</th>
+                                                        <th className="px-3 py-3 border-b border-white/10 text-center w-28">Realizadas</th>
+                                                        <th className="px-3 py-3 border-b border-white/10 text-center w-32">Negociações</th>
+                                                        <th className="px-3 py-3 border-b border-white/10 text-center w-28">Vol. Total</th>
+                                                        <th className="px-3 py-3 border-b border-white/10 text-center w-28">% Conclusão</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -652,10 +722,13 @@ export default function Relatorios() {
                                                             <td className="px-4 py-3 text-center">
                                                                 {renderPosicao(item.posicao)}
                                                             </td>
+                                                            <td className="px-3 py-3 text-center text-xs text-white/50">{item.matricula}</td>
                                                             <td className="px-4 py-3 min-w-[180px]">
                                                                 <p className="text-sm font-bold text-primary-foreground">{item.nome}</p>
                                                             </td>
-                                                            <td className="px-3 py-3 text-center text-xs text-white/50">{item.matricula}</td>
+                                                            <td className="px-4 py-3 min-w-[150px]">
+                                                                <span className="text-xs font-semibold px-2 py-1 bg-white/5 border border-white/10 rounded-md text-white/80">{item.fornecedor}</span>
+                                                            </td>
                                                             <td className="px-3 py-3 text-center text-sm text-white/80">{item.planejadas}</td>
                                                             <td className="px-3 py-3 text-center text-sm font-bold text-green-400">{item.realizadas}</td>
                                                             <td className="px-3 py-3 text-center text-sm text-gold font-semibold">{item.negociacoes}</td>
@@ -685,43 +758,54 @@ export default function Relatorios() {
                             <div className="glass-card-strong rounded-xl shadow-lg overflow-hidden mt-2 animate-fade-in border border-white/10">
                                 <div className="flex items-center justify-between p-4 bg-primary border-b border-white/10">
                                     <h2 className="text-base font-bold text-primary-foreground flex items-center gap-2 font-display">
-                                        <ClipboardList className="h-5 w-5 text-primary-foreground" />
-                                        Planejamento Detalhado da Equipe
+                                        <ClipboardList className="h-5 w-5 text-primary-foreground hidden md:block" />
+                                        <span className="hidden lg:inline">Planejamento Detalhado</span>
                                     </h2>
-
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 text-xs font-bold border-white/20 text-white bg-white/5 hover:bg-white/10"
-                                        onClick={exportPlanejamento}
-                                    >
-                                        <Download className="h-3.5 w-3.5 mr-2" />
-                                        Exportar Planilha
-                                    </Button>
+                                    <div className="flex items-center gap-3">
+                                        {renderFiltrosTabela()}
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 text-xs font-bold border-white/20 text-white bg-white/5 hover:bg-white/10 hidden md:flex"
+                                            onClick={exportPlanejamento}
+                                        >
+                                            <Download className="h-3.5 w-3.5 md:mr-2" />
+                                            <span className="hidden lg:inline">Exportar Planilha</span>
+                                        </Button>
+                                    </div>
                                 </div>
 
-                                {consultoresPlan.length === 0 ? (
+                                {mesSelecionado === -1 ? (
+                                    <div className="px-5 py-16 flex flex-col items-center justify-center text-center glass-card mx-5 my-6 rounded-xl border border-white/10 shadow-lg">
+                                        <CalendarDays className="h-12 w-12 text-white/20 mb-4" />
+                                        <h3 className="text-lg font-bold text-primary-foreground">Visão Anual não suporta detalhamento Diário</h3>
+                                        <p className="text-sm text-primary-foreground/60 mt-2 max-w-md">Para visualizar a planilha de detalhamento do planejamento dia a dia, por favor, selecione um Mês e uma Semana específicos no filtro acima.</p>
+                                    </div>
+                                ) : consultoresPlan.length === 0 ? (
                                     <div className="px-5 py-12 text-center text-primary-foreground/60 glass-card mx-5 my-6 rounded-xl border-white/10">
                                         Nenhum planejamento registrado em {periodo.labelMes} ({periodo.labelPeriodo}).
                                     </div>
                                 ) : (
-                                    <div className="overflow-x-auto custom-scrollbar">
-                                        <table className="w-full text-left border-separate border-spacing-0">
+                                    <div className="overflow-x-auto custom-scrollbar w-full">
+                                        <table className="w-full text-left border-separate border-spacing-0 table-fixed min-w-[1000px]">
                                             <thead>
                                                 <tr className="bg-black/30 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
-                                                    <th className="px-4 py-3 border-b border-white/10" style={{ minWidth: 160 }}>
-                                                        Colaborador
-                                                    </th>
-                                                    <th className="px-4 py-3 text-center border-b border-white/10" style={{ minWidth: 70 }}>
+                                                    <th className="px-4 py-3 text-center border-b border-white/10 w-28">
                                                         Matrícula
                                                     </th>
+                                                    <th className="px-4 py-3 border-b border-white/10 w-64">
+                                                        Colaborador
+                                                    </th>
+                                                    <th className="px-4 py-3 border-b border-white/10 w-32">
+                                                        Equipe
+                                                    </th>
                                                     {diasUteis.map((d) => (
-                                                        <th key={d.dateKey} className="px-4 py-3 text-center border-b border-white/10 min-w-[120px]">
+                                                        <th key={d.dateKey} className="px-4 py-3 text-center border-b border-white/10 w-44">
                                                             <div className="text-primary-foreground font-extrabold text-xs">{d.dayNum}</div>
                                                             <div className="text-[9px] text-white/50 capitalize font-medium">{d.weekday}</div>
                                                         </th>
                                                     ))}
-                                                    <th className="px-4 py-3 text-center border-b border-white/10" style={{ minWidth: 55 }}>
+                                                    <th className="px-4 py-3 text-center border-b border-white/10 w-24">
                                                         Total
                                                     </th>
                                                 </tr>
@@ -734,11 +818,14 @@ export default function Relatorios() {
 
                                                         return (
                                                             <tr key={consultor.id} className={`group hover:bg-white/[0.12] transition-colors border-b border-white/5 ${idx % 2 === 0 ? 'bg-white/[0.04]' : 'bg-white/[0.08]'}`}>
+                                                                <td className="px-4 py-3 align-top text-xs text-white/50 text-center">
+                                                                    {consultor.matricula}
+                                                                </td>
                                                                 <td className="px-4 py-3 align-top font-semibold text-sm text-primary-foreground" style={{ minWidth: 160 }}>
                                                                     {consultor.nome}
                                                                 </td>
-                                                                <td className="px-4 py-3 align-top text-xs text-white/50 text-center">
-                                                                    {consultor.matricula}
+                                                                <td className="px-4 py-3 align-top">
+                                                                    <span className="text-xs font-semibold px-2 py-1 bg-white/5 border border-white/10 rounded-md text-white/80">{consultor.fornecedor}</span>
                                                                 </td>
                                                                     {diasUteis.map((d) => {
                                                                     const visitas = getVisitasDia(consultor, d.dateKey);
@@ -779,19 +866,22 @@ export default function Relatorios() {
                             <div className="glass-card-strong rounded-xl overflow-hidden animate-fade-in flex flex-col items-stretch mt-2 shadow-lg border border-white/10">
                                 <div className="bg-primary px-5 py-4 flex items-center justify-between border-b border-white/10">
                                     <div className="flex items-center gap-2">
-                                        <ListFilter className="h-5 w-5 text-primary-foreground" />
-                                        <span className="text-base font-bold text-primary-foreground font-display">Resultados e Registros</span>
+                                        <ListFilter className="h-5 w-5 text-primary-foreground hidden md:block" />
+                                        <span className="text-base font-bold text-primary-foreground font-display hidden sm:inline">Resultados</span>
                                     </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 text-xs font-bold border-white/20 text-white bg-white/5 hover:bg-white/10"
-                                        onClick={exportHistorico}
-                                        disabled={historico.length === 0}
-                                    >
-                                        <Download className="h-3.5 w-3.5 mr-2" />
-                                        Exportar
-                                    </Button>
+                                    <div className="flex items-center gap-3">
+                                        {renderFiltrosTabela()}
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 text-xs font-bold border-white/20 text-white bg-white/5 hover:bg-white/10 hidden md:flex"
+                                            onClick={exportHistorico}
+                                            disabled={historico.length === 0}
+                                        >
+                                            <Download className="h-3.5 w-3.5 mr-2" />
+                                            Exportar
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 {historico.length === 0 ? (
@@ -799,16 +889,18 @@ export default function Relatorios() {
                                         Nenhuma visita registrada com detalhes neste período.
                                     </div>
                                 ) : (
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-separate border-spacing-0">
+                                    <div className="overflow-x-auto w-full">
+                                        <table className="w-full text-left border-separate border-spacing-0 table-fixed min-w-[1100px]">
                                             <thead>
                                                 <tr className="bg-black/30 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
-                                                    <th className="px-4 py-3 border-b border-white/10">Data</th>
-                                                    <th className="px-4 py-3 border-b border-white/10">Colaborador</th>
-                                                    <th className="px-4 py-3 border-b border-white/10">Cooperado</th>
-                                                    <th className="px-4 py-3 border-b border-white/10 text-center">Resultado</th>
-                                                    <th className="px-4 py-3 border-b border-white/10 text-center">Canal</th>
-                                                    <th className="px-4 py-3 border-b border-white/10 text-right">Negociação</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 w-32">Data</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 text-center w-28">Matrícula</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 w-64">Colaborador</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 w-32">Equipe</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 w-56">Cooperado</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 text-center w-40">Resultado</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 text-center w-32">Canal</th>
+                                                    <th className="px-4 py-3 border-b border-white/10 text-right w-32">Negociação</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -817,8 +909,14 @@ export default function Relatorios() {
                                                         <td className="px-4 py-3 text-sm font-medium text-white/80 whitespace-nowrap">
                                                             {item.data_visita ? item.data_visita.split('-').reverse().join('/') : 'N/A'}
                                                         </td>
+                                                        <td className="px-4 py-3 text-center text-xs text-white/50">
+                                                            {item.tdm_matricula}
+                                                        </td>
                                                         <td className="px-4 py-3 text-sm font-semibold text-primary-foreground">
                                                             {item.nome_consultor}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className="text-[10px] font-semibold px-2 py-1 bg-white/5 border border-white/10 rounded-md text-white/80">{item.fornecedor}</span>
                                                         </td>
                                                         <td className="px-4 py-3 text-sm text-white/70">
                                                             {item.nome_cooperado}

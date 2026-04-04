@@ -124,34 +124,32 @@ export async function initDatabase(): Promise<Database> {
     console.log("🆕 Novo banco de dados criado");
   }
 
+  try {
+        (db as any).create_function("normalize_str", (str: unknown) => {
+            if (!str || typeof str !== 'string') return "";
+            return str.normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/\s+/g, " ")
+                .trim()
+                .toLowerCase();
+        });
+  } catch (err) {
+  }
+
   db.run("PRAGMA foreign_keys=ON;");
 
   createTables();
   auditLog("FIM DO BOOT (initDatabase)");
 
-  // Salvar o estado inicial no disco (garante que o arquivo existe)
   flushToDisk();
-
   return db;
 }
 
-/**
- * Retorna a instância do banco.
- */
 export function getDb(): Database {
   if (!db) throw new Error("Database not initialized. Call initDatabase() first.");
   return db;
 }
 
-/**
- * Salva o banco de dados no disco.
- * Mantido para compatibilidade com código existente, mas agora é
- * um alias simples para flushToDisk().
- * 
- * IMPORTANTE: Com a nova arquitetura, cada chamada a saveDatabase()
- * nas rotas garante persistência IMEDIATA. Não dependemos mais de
- * setInterval ou de processos fantasma.
- */
 export function saveDatabase(): void {
   auditLog("CHAMOU saveDatabase (Router)");
   flushToDisk();
@@ -195,6 +193,7 @@ function createTables(): void {
       celular TEXT UNIQUE NOT NULL,
       senha_hash TEXT NOT NULL,
       role TEXT DEFAULT 'consultor',
+      fornecedor TEXT,
       device_fingerprint TEXT,
       reset_code TEXT,
       reset_expires DATETIME,
@@ -208,6 +207,7 @@ function createTables(): void {
     // Coluna já existe, ignorar
   }
   
+  try { db.run("ALTER TABLE users ADD COLUMN fornecedor TEXT"); } catch { }
   try { db.run("ALTER TABLE users ADD COLUMN reset_code TEXT"); } catch { }
   try { db.run("ALTER TABLE users ADD COLUMN reset_expires DATETIME"); } catch { }
 
@@ -285,9 +285,13 @@ function createTables(): void {
       nome TEXT NOT NULL,
       matricula TEXT UNIQUE NOT NULL,
       cargo TEXT,
+      fornecedor TEXT,
       ativo INTEGER DEFAULT 1
     );
   `);
+
+  try { db.run("ALTER TABLE equipe_vendas ADD COLUMN ativo INTEGER DEFAULT 1"); } catch { }
+  try { db.run("ALTER TABLE equipe_vendas ADD COLUMN fornecedor TEXT"); } catch { }
 
   // Índices para performance
   db.run("CREATE INDEX IF NOT EXISTS idx_cooperados_nome ON cooperados(nome);");

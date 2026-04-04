@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { getDb, saveDatabase } from "../database.js";
 import { authMiddleware, generateToken } from "../middleware/auth.js";
 import { RegisterBody, LoginBody } from "../types.js";
+import { normalizeMatricula } from "../sync-excel.js";
 
 const router = Router();
 
@@ -29,6 +30,8 @@ function celularVariants(celularClean: string): string[] {
     }
     return [celularClean];
 }
+
+
 
 /**
  * POST /api/auth/register
@@ -65,7 +68,7 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
         const variants = celularVariants(celularClean);
         const placeholders = variants.map(() => "?").join(", ");
         const autorizado = db.exec(
-            `SELECT id, cargo FROM celulares_autorizados WHERE numero IN (${placeholders}) AND ativo = 1`,
+            `SELECT id, cargo, matricula FROM celulares_autorizados WHERE numero IN (${placeholders}) AND ativo = 1`,
             variants
         );
         if (autorizado.length === 0 || autorizado[0].values.length === 0) {
@@ -74,7 +77,14 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
         }
 
         const roleFromDb = autorizado[0].values[0][1] as string | null;
+        const matriculaFromDb = autorizado[0].values[0][2] as string | null;
         const userCargo = roleFromDb?.trim() || "consultor";
+
+        // Validação Estrita da Matrícula
+        if (matriculaFromDb && normalizeMatricula(matricula) !== normalizeMatricula(matriculaFromDb)) {
+            res.status(403).json({ error: "A Matrícula digitada não confere com o cadastro corporativo do seu celular." });
+            return;
+        }
 
         // Verificar se já existe usuário com esse celular (busca ambas variantes)
         const existente = db.exec(
@@ -382,7 +392,7 @@ router.get("/users", authMiddleware, (req: Request, res: Response): void => {
             return;
         }
 
-        const result = db.exec("SELECT id, nome, celular, matricula, role, reset_code, reset_expires FROM users ORDER BY nome ASC");
+        const result = db.exec("SELECT id, nome, celular, matricula, role, reset_code, reset_expires, fornecedor FROM users ORDER BY nome ASC");
         
         if (result.length === 0 || result[0].values.length === 0) {
             res.json([]);

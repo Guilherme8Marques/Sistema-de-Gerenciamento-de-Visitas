@@ -98,7 +98,10 @@ const CooperadoSearch = ({
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            searchCooperados(val);
+            const queryInsensitive = val
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
+            searchCooperados(queryInsensitive);
         }, 300);
     };
 

@@ -305,6 +305,9 @@ const Login = () => {
           <p className="text-xs text-white/60 font-medium">
             Inteligência de Mercado / Comercial Insumos
           </p>
+          <p className="text-[8px] text-white/30 font-mono mt-2">
+            v1.0.2 - 30/03
+          </p>
         </div>
       </div>
 

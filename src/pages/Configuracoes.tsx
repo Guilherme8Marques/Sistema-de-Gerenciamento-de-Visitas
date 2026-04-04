@@ -11,6 +11,7 @@ type User = {
   matricula: string;
   role: string;
   reset_code?: string;
+  fornecedor?: string;
 };
 
 const Configuracoes = () => {
@@ -100,12 +101,17 @@ const Configuracoes = () => {
     }
   };
 
-  const filteredUsers = users.filter(user => {
-    const query = searchQuery.toLowerCase();
+  const normalizeLocal = (str: string) =>
+    str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
+
+  const searchNormalized = normalizeLocal(searchQuery);
+
+  const filteredUsers = users.filter((user) => {
     return (
-      user.nome.toLowerCase().includes(query) ||
-      user.celular.includes(query) ||
-      user.matricula.toLowerCase().includes(query)
+      normalizeLocal(user.nome).includes(searchNormalized) ||
+      normalizeLocal(user.celular).includes(searchNormalized) ||
+      normalizeLocal(user.matricula).includes(searchNormalized) ||
+      (user.fornecedor && normalizeLocal(user.fornecedor).includes(searchNormalized))
     );
   });
 
@@ -199,7 +205,14 @@ const Configuracoes = () => {
                 <div key={user.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors group gap-3 border border-transparent hover:border-white/5">
                   <div className="flex flex-col overflow-hidden text-ellipsis whitespace-nowrap">
                     <span className="text-sm font-bold text-white pr-2 truncate" title={user.nome}>{user.nome}</span>
-                    <span className="text-xs text-white/50">{user.celular} • {user.matricula}</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-white/50">{user.celular} • {user.matricula}</span>
+                      {user.fornecedor && (
+                        <span className="text-[10px] bg-accent/20 text-accent-light px-1.5 py-0.5 rounded border border-accent/20 font-bold uppercase tracking-wider">
+                          {user.fornecedor}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="flex items-center gap-2 self-end sm:self-auto">

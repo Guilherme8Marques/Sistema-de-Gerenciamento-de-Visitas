@@ -94,7 +94,10 @@ const ColaboradorSearch = ({
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            searchColaboradores(val);
+            const queryInsensitive = val
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
+            searchColaboradores(queryInsensitive);
         }, 300);
     };
 

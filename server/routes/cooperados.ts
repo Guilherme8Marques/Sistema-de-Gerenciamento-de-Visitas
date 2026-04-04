@@ -17,24 +17,47 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
         let result;
 
         if (busca.trim()) {
-            const buscaParam = `%${busca.toLowerCase()}%`;
-            
-            // Busca performática via SQL com LIMIT
+            const buscaNormalizada = busca.trim()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/\s+/g, " ")
+                .toLowerCase();
+            const buscaParam = `%${buscaNormalizada}%`;
+
+            const safeNomeCol = `
+                LOWER(
+                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                    REPLACE(REPLACE(REPLACE(REPLACE(
+                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                    REPLACE(REPLACE(REPLACE(REPLACE(c.nome,
+                    'Á','A'), 'À','A'), 'Â','A'), 'Ã','A'),
+                    'É','E'), 'Ê','E'), 'Í','I'),
+                    'Ó','O'), 'Ô','O'), 'Õ','O'),
+                    'Ú','U'), 'Ç','C'),
+                    'á','a'), 'à','a'), 'â','a'), 'ã','a'),
+                    'é','e'), 'ê','e'), 'í','i'),
+                    'ó','o'), 'ô','o'), 'õ','o'),
+                    'ú','u'), 'ç','c')
+                )
+            `;
+
+            // Busca performática via SQL com limit fixo (usando REPLACE em vez de normalize_str)
             result = db.exec(`
                 SELECT c.id, c.nome, c.matricula, f.id as filial_id, f.nome as filial_nome, f.cidade
                 FROM cooperados c
                 JOIN filiais f ON c.filial_id = f.id
-                WHERE LOWER(c.nome) LIKE ? OR c.matricula LIKE ?
+                WHERE ${safeNomeCol} LIKE ? OR c.matricula LIKE ?
                 ORDER BY 
                     CASE 
                         WHEN c.matricula = ? THEN 0
                         WHEN c.matricula LIKE ? THEN 1
-                        WHEN LOWER(c.nome) LIKE ? THEN 2
+                        WHEN ${safeNomeCol} LIKE ? THEN 2
                         ELSE 3
                     END,
                     c.nome ASC
                 LIMIT 20
-            `, [buscaParam, buscaParam, busca.trim(), `${busca.trim()}%`, `${busca.toLowerCase()}%`]);
+            `, [buscaParam, buscaParam, busca.trim(), `${busca.trim()}%`, `${buscaNormalizada}%`]);
 
             if (result.length === 0 || result[0].values.length === 0) {
                 console.log(`🔍 [BUSCA] Nenhum resultado para "${busca}"`);
@@ -56,7 +79,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
             return;
         }
 
-        const cooperados = result[0].values.map((row) => ({
+        const cooperados = result[0].values.map((row: any) => ({
             id: row[0],
             nome: row[1],
             matricula: row[2],
@@ -80,7 +103,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
  */
 router.get("/:id/propriedades", authMiddleware, (req: Request, res: Response): void => {
     try {
-        const cooperadoId = parseInt(req.params.id);
+        const cooperadoId = parseInt(req.params.id as string);
         const db = getDb();
 
         const result = db.exec(

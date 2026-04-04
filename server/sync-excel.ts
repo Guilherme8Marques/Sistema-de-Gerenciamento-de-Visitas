@@ -7,6 +7,12 @@ import { getDb, saveDatabase } from "./database.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/** Remove zeros à esquerda e espaços. "05585" -> "5585", " 123 " -> "123" */
+export function normalizeMatricula(raw: string | number | null | undefined): string {
+    if (raw == null) return "";
+    return String(raw).trim().replace(/^0+/, "") || "0";
+}
+
 export function sincronizarUsuariosExcel() {
     const usuariosPath = path.join(__dirname, "..", "dados", "RELAÇÃO COMPLETA TDMs e ADMs.xlsx");
     if (!fs.existsSync(usuariosPath)) {
@@ -27,7 +33,7 @@ export function sincronizarUsuariosExcel() {
         for (const row of usuariosRecords as any[]) {
             // Mapeamento dinâmico considerando diferentes nomes de colunas que podem ser alterados pelo usuário
             const celularRaw = row["CELULAR CXP"] || row["Celular CXP"] || row["Celular"] || row["celular"];
-            const matriculaRaw = row["CÓDIGO"] || row["Código"] || row["Matricula"] || row["matricula"];
+            const matriculaRaw = row["Cadastro"] || row["CÓDIGO"] || row["Matrícula"] || row["cadastro"] || row["Código"] || row["matricula"];
             const nomeRaw = row["COLABORADOR(A)"] || row["Colaborador(a)"] || row["Nome"] || row["nome"];
             const cargoRaw = row["CARGO."] || row["CARGO"] || row["Cargo"] || row["cargo"];
             const fornecedorRaw = row["FORNECEDOR"] || row["Fornecedor"];
@@ -74,12 +80,15 @@ export function sincronizarUsuariosExcel() {
         console.log(`✅ [AUTO-SYNC] ${celularesCount} celulares autorizados atualizados no SQLite com sucesso.`);
 
         // ── Segunda passagem: Sincronizar dados dos USUÁRIOS existentes ──
-        // Se o nome ou cargo mudou na planilha, atualizar na tabela `users` também.
+        // Busca por MATRÍCULA primeiro (âncora estável), depois por celular como fallback.
+        // Se o celular mudou no Excel, atualiza o cadastro do usuário automaticamente.
         let usersAtualizados = 0;
         for (const row of usuariosRecords as any[]) {
             const celularRaw = row["CELULAR CXP"] || row["Celular CXP"] || row["Celular"] || row["celular"];
             const nomeRaw = row["COLABORADOR(A)"] || row["Colaborador(a)"] || row["Nome"] || row["nome"];
             const cargoRaw = row["CARGO."] || row["CARGO"] || row["Cargo"] || row["cargo"];
+            const fornecedorRaw = row["FORNECEDOR"] || row["Fornecedor"];
+            const matriculaRaw = row["Cadastro"] || row["CÓDIGO"] || row["Matrícula"] || row["cadastro"] || row["Código"] || row["matricula"];
 
             if (!celularRaw) continue;
 
@@ -88,6 +97,8 @@ export function sincronizarUsuariosExcel() {
 
             const nomeLimpo = nomeRaw?.toString().trim() || null;
             const cargoLimpo = cargoRaw?.toString().trim() || "consultor";
+            const fornecedorLimpo = fornecedorRaw?.toString().trim() || null;
+            const matNorm = normalizeMatricula(matriculaRaw);
 
             // Gerar variantes com e sem o 9° dígito
             const ddd = celularClean.slice(0, 2);
@@ -102,25 +113,75 @@ export function sincronizarUsuariosExcel() {
             }
 
             try {
-                const placeholders = variants.map(() => "?").join(", ");
-                const userResult = db.exec(
-                    `SELECT id, nome, role FROM users WHERE celular IN (${placeholders})`,
-                    variants
-                );
+                // 1) Buscar primeiro pela MATRÍCULA (âncora estável)
+                let userId: number | null = null;
+                let nomeAtual = "";
+                let roleAtual = "";
+                let fornecedorAtual = "";
+                let celularAtual = "";
 
-                if (userResult.length > 0 && userResult[0].values.length > 0) {
-                    const userId = userResult[0].values[0][0] as number;
-                    const nomeAtual = userResult[0].values[0][1] as string;
-                    const roleAtual = userResult[0].values[0][2] as string;
+                if (matNorm) {
+                    const byMat = db.exec(
+                        "SELECT id, nome, role, fornecedor, celular, matricula FROM users WHERE LTRIM(matricula, '0') = ? OR matricula = ?",
+                        [matNorm, matriculaRaw]
+                    );
+                    if (byMat.length > 0 && byMat[0].values.length > 0) {
+                        userId = byMat[0].values[0][0] as number;
+                        nomeAtual = byMat[0].values[0][1] as string;
+                        roleAtual = byMat[0].values[0][2] as string;
+                        fornecedorAtual = byMat[0].values[0][3] as string;
+                        celularAtual = byMat[0].values[0][4] as string;
+                        const matriculaDB = byMat[0].values[0][5] as string || "";
+                        // Fallback: se a matrícula no banco for diferente (mesmo normalizada), forçamos o update
+                        if (normalizeMatricula(matriculaDB) !== matNorm) {
+                             // Isso garante a cura automática se o ID for o mesmo mas a matrícula mudou
+                        }
+                    }
+                }
 
-                    const mudouNome = nomeLimpo && nomeLimpo !== nomeAtual;
-                    const mudouCargo = cargoLimpo !== roleAtual;
+                // 2) Fallback 1: buscar pelo celular (para usuários antigos sem matrícula normalizada)
+                if (!userId) {
+                    const placeholders = variants.map(() => "?").join(", ");
+                    const byTel = db.exec(
+                        `SELECT id, nome, role, fornecedor, celular, matricula FROM users WHERE celular IN (${placeholders})`,
+                        variants
+                    );
+                    if (byTel.length > 0 && byTel[0].values.length > 0) {
+                        userId = byTel[0].values[0][0] as number;
+                        nomeAtual = byTel[0].values[0][1] as string;
+                        roleAtual = byTel[0].values[0][2] as string;
+                        fornecedorAtual = byTel[0].values[0][3] as string;
+                        celularAtual = byTel[0].values[0][4] as string;
+                    }
+                }
 
-                    if (mudouNome || mudouCargo) {
-                        db.run(
-                            "UPDATE users SET nome = COALESCE(?, nome), role = ? WHERE id = ?",
-                            [nomeLimpo, cargoLimpo, userId]
-                        );
+                if (userId) {
+                    // Buscar a matrícula atual novamente para garantir a detecção correta de mudança
+                    const userCheck = db.exec("SELECT matricula FROM users WHERE id = ?", [userId]);
+                    const matriculaAtual = userCheck.length > 0 ? (userCheck[0].values[0][0] as string || "") : "";
+
+                    const mudouNome = (nomeLimpo || "") !== (nomeAtual || "");
+                    const mudouCargo = (cargoLimpo || "consultor") !== (roleAtual || "consultor");
+                    const mudouFornecedor = (fornecedorLimpo || "") !== (fornecedorAtual || "");
+                    const mudouMatricula = matNorm !== normalizeMatricula(matriculaAtual);
+                    // Verificar se o celular mudou (compara variantes)
+                    const mudouCelular = !variants.includes(celularAtual);
+
+                    if (mudouNome || mudouCargo || mudouFornecedor || mudouCelular || mudouMatricula) {
+                        const updates: string[] = [];
+                        const params: any[] = [];
+
+                        if (mudouNome && nomeLimpo) { updates.push("nome = ?"); params.push(nomeLimpo); }
+                        updates.push("role = ?"); params.push(cargoLimpo);
+                        updates.push("fornecedor = ?"); params.push(fornecedorLimpo);
+                        if (mudouCelular) {
+                            updates.push("celular = ?"); params.push(celularClean);
+                            console.log(`📱 [MIGRAÇÃO] Celular do usuário ${nomeAtual} (ID: ${userId}) atualizado: ${celularAtual} → ${celularClean}`);
+                        }
+                        if (matNorm) { updates.push("matricula = ?"); params.push(matNorm); }
+                        params.push(userId);
+
+                        db.run(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`, params);
                         usersAtualizados++;
                     }
                 }
@@ -134,6 +195,58 @@ export function sincronizarUsuariosExcel() {
         }
 
         console.log(`\n`);
+
+        // ── Terceira passagem: Sincronizar RELAÇÃO COMPLETA (Acompanhantes) ──
+        // Lemos o arquivo "colaboradores.xlsx" para popular a equipe_vendas 
+        // e permitir que o campo de "Acompanhado por" busque todos os ~300 funcionários.
+        const compPath = path.join(__dirname, "..", "dados", "colaboradores.xlsx");
+        if (fs.existsSync(compPath)) {
+            try {
+                const compWb = xlsx.readFile(compPath);
+                const compWs = compWb.Sheets[compWb.SheetNames[0]];
+                // A planilha tem 5 linhas de cabeçalho de relatório inúteis. Usamos range: 5
+                const compRecords = xlsx.utils.sheet_to_json(compWs, { range: 5 });
+                // Desativar todos para garantir que apenas os do Excel atual fiquem ativos
+                db.run("UPDATE equipe_vendas SET ativo = 0");
+
+                let countEquipeVendas = 0;
+
+                for (const row of compRecords as any[]) {
+                    // Coluna A (Cadastro = Matrícula), Coluna B (Nome), Coluna D (__EMPTY = Dept/Cargo)
+                    const matRaw = row["Cadastro"] || row["cadastro"] || row["CADASTRO"];
+                    const nomeRaw = row["Nome"] || row["nome"] || row["NOME"];
+                    const cargoRaw = row["__EMPTY"] || row["Dept"] || row["dept"];
+
+                    if (!matRaw || !nomeRaw) continue;
+
+                    const matStr = String(matRaw).trim();
+                    const nomeStr = String(nomeRaw).trim();
+                    const cargoStr = cargoRaw ? String(cargoRaw).trim() : "Colaborador";
+
+                    // Upsert into equipe_vendas
+                    const checkExist = db.exec("SELECT id FROM equipe_vendas WHERE matricula = ?", [matStr]);
+                    if (checkExist.length > 0 && checkExist[0].values.length > 0) {
+                        db.run(
+                            "UPDATE equipe_vendas SET nome = ?, cargo = ?, ativo = 1 WHERE matricula = ?",
+                            [nomeStr, cargoStr, matStr]
+                        );
+                    } else {
+                        // Se não tiver fornecedor definido no ADM/TDM, deixamos como nulo
+                        db.run(
+                            "INSERT INTO equipe_vendas (nome, matricula, cargo, ativo) VALUES (?, ?, ?, 1)",
+                            [nomeStr, matStr, cargoStr]
+                        );
+                    }
+                    countEquipeVendas++;
+                }
+                console.log(`✅ [AUTO-SYNC] ${countEquipeVendas} funcionários globais listados e disponíveis para "Acompanhado por".`);
+            } catch (e) {
+                console.error("Erro ao processar colaboradores.xlsx:", e);
+            }
+        } else {
+            console.log("⚠️ [AUTO-SYNC] Arquivo colaboradores.xlsx não encontrado na pasta 'dados'.");
+        }
+
         saveDatabase();
     } catch (error) {
         console.error("❌ Erro no Auto-Sync de usuários do Excel:", error);
@@ -159,9 +272,24 @@ export function iniciarObservadorExcel() {
             if (timeoutId) clearTimeout(timeoutId);
 
             timeoutId = setTimeout(() => {
-                console.log(`\n📄 [FILE WATCHER] Planilha Excel salva! Detectada mudança às ${new Date().toLocaleTimeString('pt-BR')}`);
+                console.log(`\n📄 [FILE WATCHER] Planilha Excel (TDMs e ADMs) salva! Detectada mudança às ${new Date().toLocaleTimeString('pt-BR')}`);
                 sincronizarUsuariosExcel();
             }, 1000);
         }
     });
+
+    // Assistir também o colaboradores.xlsx
+    const compPath = path.join(__dirname, "..", "dados", "colaboradores.xlsx");
+    if (fs.existsSync(compPath)) {
+        console.log(`👀 [FILE WATCHER] Monitorando lista global de colaboradores (colaboradores.xlsx)...`);
+        fs.watchFile(compPath, { interval: 1000 }, (curr, prev) => {
+            if (curr.mtimeMs !== prev.mtimeMs) {
+                if (timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    console.log(`\n📄 [FILE WATCHER] Planilha Excel (Globais) salva! Detectada mudança às ${new Date().toLocaleTimeString('pt-BR')}`);
+                    sincronizarUsuariosExcel();
+                }, 1000);
+            }
+        });
+    }
 }

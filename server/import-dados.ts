@@ -74,7 +74,7 @@ function findFile(directory: string, pattern: RegExp): string | null {
 async function importar() {
     // Verificar se o servidor está rodando
     const serverRunning = await checkServerRunning(SERVER_PORT);
-    if (serverRunning) {
+    if (serverRunning && !process.argv.includes('--force')) {
         console.error("❌ ERRO: O servidor está rodando na porta " + SERVER_PORT + "!");
         console.error("");
         console.error("   O auto-save do servidor (a cada 30s) vai sobrescrever os dados importados.");
@@ -135,18 +135,9 @@ async function importar() {
     await initDatabase();
     const db = getDb();
 
-    // Desabilitar chaves estrangeiras temporariamente para limpeza total
-    db.run("PRAGMA foreign_keys=OFF;");
-
-    // Limpar dados antigos (seed)
-    db.run("DELETE FROM visitas;");
-    db.run("DELETE FROM planejamento;");
+    // Limpar apenas tabelas que não quebram relatórios (seed)
     db.run("DELETE FROM propriedades;");
-    db.run("DELETE FROM cooperados;");
-    db.run("DELETE FROM filiais;");
-
-    // Reabilitar chaves estrangeiras
-    db.run("PRAGMA foreign_keys=ON;");
+    console.log("🗑️  Propriedades antigas removidas (seed)\n");
 
     console.log("🗑️  Dados antigos removidos (seed)\n");
 
@@ -194,7 +185,7 @@ async function importar() {
     console.log(`✅ ${celularesCount} celulares autorizados inseridos`);
 
     // --- Passo 0.5: Importar Colaboradores para "Acompanhado por" ---
-    db.run("DELETE FROM equipe_vendas;");
+    db.run("UPDATE equipe_vendas SET ativo = 0;");
     let colaboradoresPath = findFile(DADOS_DIR, /colaboradores.*\.xlsx$/i);
     let equipeCount = 0;
 
@@ -219,10 +210,16 @@ async function importar() {
             if (isNaN(Number(matricula))) continue;
 
             try {
-                db.run(
-                    "INSERT OR REPLACE INTO equipe_vendas (nome, matricula, cargo, ativo) VALUES (?, ?, ?, 1)",
-                    [nome, matricula, cargo]
-                );
+                const exists = db.exec("SELECT id FROM equipe_vendas WHERE matricula = ?", [matricula]);
+                if (exists.length > 0 && exists[0].values.length > 0) {
+                    const id = exists[0].values[0][0] as number;
+                    db.run("UPDATE equipe_vendas SET nome = ?, cargo = ?, ativo = 1 WHERE id = ?", [nome, cargo, id]);
+                } else {
+                    db.run(
+                        "INSERT INTO equipe_vendas (nome, matricula, cargo, ativo) VALUES (?, ?, ?, 1)",
+                        [nome, matricula, cargo]
+                    );
+                }
                 equipeCount++;
             } catch (e) {
                 // Ignorar duplicatas
@@ -255,12 +252,16 @@ async function importar() {
     let filialCount = 0;
 
     for (const [codigo, filial] of filiaisSet) {
-        db.run(
-            "INSERT INTO filiais (nome, cidade) VALUES (?, ?)",
-            [filial.nome, filial.nome] // cidade = nome da filial por enquanto
-        );
-        const result = db.exec("SELECT last_insert_rowid()");
-        const id = result[0].values[0][0] as number;
+        const exists = db.exec("SELECT id FROM filiais WHERE nome = ?", [filial.nome]);
+        let id: number;
+        if (exists.length > 0 && exists[0].values.length > 0) {
+            id = exists[0].values[0][0] as number;
+            db.run("UPDATE filiais SET cidade = ? WHERE id = ?", [filial.nome, id]);
+        } else {
+            db.run("INSERT INTO filiais (nome, cidade) VALUES (?, ?)", [filial.nome, filial.nome]);
+            const result = db.exec("SELECT last_insert_rowid()");
+            id = result[0].values[0][0] as number;
+        }
         filialIdMap.set(codigo, id);
         filialCount++;
     }
@@ -293,12 +294,19 @@ async function importar() {
             continue;
         }
 
-        db.run(
-            "INSERT INTO cooperados (nome, filial_id, matricula) VALUES (?, ?, ?)",
-            [coop.nome, filialId, matricula]
-        );
-        const result = db.exec("SELECT last_insert_rowid()");
-        const id = result[0].values[0][0] as number;
+        const exists = db.exec("SELECT id FROM cooperados WHERE matricula = ?", [matricula]);
+        let id: number;
+        if (exists.length > 0 && exists[0].values.length > 0) {
+            id = exists[0].values[0][0] as number;
+            db.run("UPDATE cooperados SET nome = ?, filial_id = ? WHERE id = ?", [coop.nome, filialId, id]);
+        } else {
+            db.run(
+                "INSERT INTO cooperados (nome, filial_id, matricula) VALUES (?, ?, ?)",
+                [coop.nome, filialId, matricula]
+            );
+            const result = db.exec("SELECT last_insert_rowid()");
+            id = result[0].values[0][0] as number;
+        }
         cooperadoIdMap.set(matricula, id);
         cooperadoCount++;
     }

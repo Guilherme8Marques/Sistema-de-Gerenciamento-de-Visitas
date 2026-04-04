@@ -17,23 +17,46 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
         let result;
 
         if (busca.trim()) {
-            const buscaParam = `%${busca.toLowerCase()}%`;
+            const buscaNormalizada = busca.trim()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/\s+/g, " ")
+                .toLowerCase();
+            const buscaParam = `%${buscaNormalizada}%`;
+
+            const safeNomeCol = `
+                LOWER(
+                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                    REPLACE(REPLACE(REPLACE(REPLACE(
+                    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                    REPLACE(REPLACE(REPLACE(REPLACE(nome,
+                    'Á','A'), 'À','A'), 'Â','A'), 'Ã','A'),
+                    'É','E'), 'Ê','E'), 'Í','I'),
+                    'Ó','O'), 'Ô','O'), 'Õ','O'),
+                    'Ú','U'), 'Ç','C'),
+                    'á','a'), 'à','a'), 'â','a'), 'ã','a'),
+                    'é','e'), 'ê','e'), 'í','i'),
+                    'ó','o'), 'ô','o'), 'õ','o'),
+                    'ú','u'), 'ç','c')
+                )
+            `;
 
             result = db.exec(`
-                SELECT id, nome, matricula, cargo
+                SELECT id, nome, matricula, cargo, fornecedor
                 FROM equipe_vendas
                 WHERE ativo = 1
-                  AND (LOWER(nome) LIKE ? OR matricula LIKE ?)
+                  AND (${safeNomeCol} LIKE ? OR matricula LIKE ?)
                 ORDER BY 
                     CASE 
                         WHEN matricula = ? THEN 0
                         WHEN matricula LIKE ? THEN 1
-                        WHEN LOWER(nome) LIKE ? THEN 2
+                        WHEN ${safeNomeCol} LIKE ? THEN 2
                         ELSE 3
                     END,
                     nome ASC
                 LIMIT 20
-            `, [buscaParam, buscaParam, busca.trim(), `${busca.trim()}%`, `${busca.toLowerCase()}%`]);
+            `, [buscaParam, buscaParam, busca.trim(), `${busca.trim()}%`, `${buscaNormalizada}%`]);
 
             if (result.length === 0 || result[0].values.length === 0) {
                 res.json([]);
@@ -41,7 +64,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
             }
         } else {
             result = db.exec(`
-                SELECT id, nome, matricula, cargo
+                SELECT id, nome, matricula, cargo, fornecedor
                 FROM equipe_vendas
                 WHERE ativo = 1
                 ORDER BY nome
@@ -59,6 +82,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
             nome: row[1],
             matricula: row[2],
             cargo: row[3],
+            fornecedor: row[4],
         }));
 
         res.json(equipe);

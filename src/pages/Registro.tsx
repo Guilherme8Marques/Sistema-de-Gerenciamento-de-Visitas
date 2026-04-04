@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import DoencasPragasModal from "@/components/DoencasPragasModal";
 import CooperadoSearch, { type CooperadoOption } from "@/components/CooperadoSearch";
 import ColaboradorSearch, { type ColaboradorOption } from "@/components/ColaboradorSearch";
+import { isFeriado } from "@/utils/feriados";
 
 const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"] as const;
 
@@ -92,6 +93,7 @@ const Registro = () => {
   const [modalVisitaId, setModalVisitaId] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [newVisitaId, setNewVisitaId] = useState<number | null>(null);
+  const [diaFeriado, setDiaFeriado] = useState<{ isFeriado: boolean; nome?: string }>({ isFeriado: false });
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   /**
@@ -221,6 +223,8 @@ const Registro = () => {
   const handleDiaChange = (dia: string) => {
     setDiaSelecionado(dia);
     setExpandedId(null);
+    const dataStr = calcularDataHoje(dia);
+    setDiaFeriado(isFeriado(dataStr));
     carregarVisitas(dia);
   };
 
@@ -458,7 +462,20 @@ const Registro = () => {
           </div>
         )}
 
-        {!carregando && diaSelecionado && (
+        {/* Holiday Banner */}
+        {!carregando && diaSelecionado && diaFeriado.isFeriado && (
+          <div className="glass-card-strong p-5 rounded-xl border-l-4 border-l-red-500 animate-fade-in-up bg-red-500/10" style={{ animationDelay: '0.2s' }}>
+            <h3 className="text-base font-bold text-red-300 mb-1 flex items-center gap-2">
+              <span className="text-lg">⚠️</span> Registro Bloqueado
+            </h3>
+            <p className="text-sm text-red-200/90 leading-tight">
+              O dia selecionado é um feriado (<strong>{diaFeriado.nome}</strong>).<br/>
+              O registro de atividades está desativado.
+            </p>
+          </div>
+        )}
+
+        {!carregando && diaSelecionado && !diaFeriado.isFeriado && (
           <>
 
 
