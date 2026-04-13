@@ -130,28 +130,38 @@ export function sincronizarCooperadosCSV(): void {
             propriedadesList.push({ matricula, nome: propriedade });
         }
 
-        // ── Passo 4: Aplicar no banco (transação atômica) ──
-        // Limpar apenas as tabelas de referência — NÃO tocar em visitas/planejamentos
-        db.run("DELETE FROM propriedades;");
-        db.run("DELETE FROM cooperados;");
-        db.run("DELETE FROM filiais;");
-
-        // Inserir filiais
-        const filialIdMap = new Map<string, number>();
-        let filialCount = 0;
-
-        for (const [codigo, filial] of filiaisSet) {
-            db.run(
-                "INSERT INTO filiais (nome, cidade) VALUES (?, ?)",
-                [filial.nome, filial.nome]
-            );
-            const result = db.exec("SELECT last_insert_rowid()");
-            const id = result[0].values[0][0] as number;
-            filialIdMap.set(codigo, id);
-            filialCount++;
+        // ── Passo 4: Aplicar no banco (MÉTODO SEGURO SEM DELETE DE COOPERADO) ──
+        // Isso preserva os IDs para o relacionamento histórico em planejamento e visitas
+        
+        // --- 4.1 Filiais ---
+        const fDbMap = new Map<string, number>();
+        const resFiliais = db.exec("SELECT id, nome FROM filiais");
+        if (resFiliais.length > 0) {
+            for (const row of resFiliais[0].values) fDbMap.set(row[1] as string, row[0] as number);
         }
 
-        // Inserir cooperados
+        const filialIdMap = new Map<string, number>();
+        let filialCount = fDbMap.size; // manter contador com as que já existem
+
+        for (const [codigo, filial] of filiaisSet) {
+            let id = fDbMap.get(filial.nome);
+            if (!id) {
+                db.run("INSERT INTO filiais (nome, cidade) VALUES (?, ?)", [filial.nome, filial.nome]);
+                const result = db.exec("SELECT last_insert_rowid()");
+                id = result[0].values[0][0] as number;
+                fDbMap.set(filial.nome, id);
+                filialCount++;
+            }
+            filialIdMap.set(codigo, id);
+        }
+
+        // --- 4.2 Cooperados ---
+        const cDbMap = new Map<string, number>();
+        const resCoop = db.exec("SELECT id, matricula FROM cooperados");
+        if (resCoop.length > 0) {
+            for (const row of resCoop[0].values) cDbMap.set(row[1] as string, row[0] as number);
+        }
+
         const cooperadoIdMap = new Map<string, number>();
         let cooperadoCount = 0;
         let terceirosCount = 0;
@@ -160,24 +170,31 @@ export function sincronizarCooperadosCSV(): void {
             const filialId = filialIdMap.get(coop.filialCodigo);
             if (!filialId) continue;
 
-            db.run(
-                "INSERT INTO cooperados (nome, filial_id, matricula, tipo) VALUES (?, ?, ?, ?)",
-                [coop.nome, filialId, matricula, coop.tipo]
-            );
-            const result = db.exec("SELECT last_insert_rowid()");
-            const id = result[0].values[0][0] as number;
+            let id = cDbMap.get(matricula);
+            if (id) {
+                db.run(
+                    "UPDATE cooperados SET nome = ?, filial_id = ?, tipo = ? WHERE id = ?",
+                    [coop.nome, filialId, coop.tipo, id]
+                );
+            } else {
+                db.run(
+                    "INSERT INTO cooperados (nome, filial_id, matricula, tipo) VALUES (?, ?, ?, ?)",
+                    [coop.nome, filialId, matricula, coop.tipo]
+                );
+                const result = db.exec("SELECT last_insert_rowid()");
+                id = result[0].values[0][0] as number;
+                cDbMap.set(matricula, id);
+            }
             cooperadoIdMap.set(matricula, id);
             
-            if (coop.tipo === "Terceiro") {
-                terceirosCount++;
-            } else {
-                cooperadoCount++;
-            }
+            if (coop.tipo === "Terceiro") terceirosCount++;
+            else cooperadoCount++;
         }
 
-        // Inserir propriedades
+        // --- 4.3 Propriedades ---
+        // Propriedades não são usadas como FK crítica, então podemos limpar para atualizar do CSV original de forma mais simples
+        db.run("DELETE FROM propriedades;");
         let propCount = 0;
-
         for (const prop of propriedadesList) {
             const cooperadoId = cooperadoIdMap.get(prop.matricula);
             if (!cooperadoId) continue;
