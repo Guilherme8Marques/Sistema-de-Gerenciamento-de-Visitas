@@ -9,12 +9,21 @@ const router = Router();
  * Busca cooperados por nome (com LIKE para autocomplete).
  * Retorna até 20 resultados com dados da filial.
  */
-router.get("/", authMiddleware, (req: Request, res: Response): void => {
+router.get("/", (req: Request, res: Response): void => {
     try {
         const db = getDb();
         const busca = (req.query.busca as string) || "";
+        const tipoFiltro = (req.query.tipo as string) || "todos";
 
         let result;
+        
+        let tipoCondition = "";
+        let tipoBinding: any[] = [];
+        if (tipoFiltro === "cooperados") {
+            tipoCondition = "AND c.tipo = 'Cooperado'";
+        } else if (tipoFiltro === "terceiros") {
+            tipoCondition = "AND c.tipo = 'Terceiro'";
+        }
 
         if (busca.trim()) {
             const buscaNormalizada = busca.trim()
@@ -22,8 +31,6 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
                 .replace(/[\u0300-\u036f]/g, "")
                 .replace(/\s+/g, " ")
                 .toLowerCase();
-            const buscaParam = `%${buscaNormalizada}%`;
-
             const safeNomeCol = `
                 LOWER(
                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
@@ -42,12 +49,30 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
                 )
             `;
 
-            // Busca performática via SQL com limit fixo (usando REPLACE em vez de normalize_str)
+            // Busca Tokenizada (múltiplas palavras)
+            const tokens = buscaNormalizada.split(" ").filter(t => t.length > 0);
+            const nomeConditions = tokens.map(() => `${safeNomeCol} LIKE ?`).join(" AND ");
+            const nomeBindings = tokens.map(t => `%${t}%`);
+
+            const matriculaParam = `%${buscaNormalizada}%`;
+            const orderMatriculaExata = busca.trim();
+            const orderMatriculaLike = `${busca.trim()}%`;
+            const orderNomeLike = `${buscaNormalizada}%`;
+
+            const queryBindings = [
+                ...nomeBindings,
+                matriculaParam,
+                orderMatriculaExata,
+                orderMatriculaLike,
+                orderNomeLike
+            ];
+
+            // Busca performática via SQL com limit fixo
             result = db.exec(`
                 SELECT c.id, c.nome, c.matricula, f.id as filial_id, f.nome as filial_nome, f.cidade
                 FROM cooperados c
                 JOIN filiais f ON c.filial_id = f.id
-                WHERE ${safeNomeCol} LIKE ? OR c.matricula LIKE ?
+                WHERE ((${nomeConditions}) OR c.matricula LIKE ?) ${tipoCondition}
                 ORDER BY 
                     CASE 
                         WHEN c.matricula = ? THEN 0
@@ -57,7 +82,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
                     END,
                     c.nome ASC
                 LIMIT 20
-            `, [buscaParam, buscaParam, busca.trim(), `${busca.trim()}%`, `${buscaNormalizada}%`]);
+            `, queryBindings);
 
             if (result.length === 0 || result[0].values.length === 0) {
                 console.log(`🔍 [BUSCA] Nenhum resultado para "${busca}"`);
@@ -69,6 +94,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
                 SELECT c.id, c.nome, c.matricula, f.id as filial_id, f.nome as filial_nome, f.cidade
                 FROM cooperados c
                 JOIN filiais f ON c.filial_id = f.id
+                WHERE 1=1 ${tipoCondition}
                 ORDER BY c.nome
                 LIMIT 20
             `);

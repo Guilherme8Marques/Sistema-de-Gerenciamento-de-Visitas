@@ -132,12 +132,13 @@ const Registro = () => {
       if (data.planejadas) {
         for (const p of data.planejadas) {
           if (planejamentoIdsRegistrados.has(p.planejamento_id)) continue;
-          
-          const nomeGerado = p.tipo === "evento"
-              ? `⭐ Evento: ${p.evento_nome}`
-              : p.cooperado_nome
-                ? `${p.cooperado_matricula} — ${p.cooperado_nome} (${p.filial_nome})`
-                : "";
+
+          let nomeGerado = "";
+          if (p.tipo === "evento") {
+            nomeGerado = `⭐ Evento: ${p.evento_nome}`;
+          } else if (p.cooperado_nome) {
+            nomeGerado = `${p.cooperado_matricula} — ${p.cooperado_nome} (${p.filial_nome})`;
+          }
 
           if (!nomeGerado) continue; // Prevent ghost records where Cooperado was deleted
 
@@ -146,6 +147,8 @@ const Registro = () => {
             planejamento_id: p.planejamento_id,
             cooperado_id: p.cooperado_id,
             nome: nomeGerado,
+            acao: p.tipo as "evento" | "visita",
+            evento_nome: p.evento_nome,
             cooperado: p.cooperado_id ? {
               id: p.cooperado_id,
               nome: p.cooperado_nome || "",
@@ -162,9 +165,12 @@ const Registro = () => {
       // Adicionar visitas já registradas
       if (data.visitas) {
         for (const v of data.visitas) {
-          const nomeGerado = v.cooperado_nome
-              ? `${v.cooperado_matricula} — ${v.cooperado_nome} (${v.filial_nome})`
-              : v.evento_nome ? `⭐ Evento: ${v.evento_nome}` : "";
+          let nomeGerado = "";
+          if (v.evento_nome) {
+            nomeGerado = `⭐ Evento: ${v.evento_nome}`;
+          } else if (v.cooperado_nome) {
+            nomeGerado = `${v.cooperado_matricula} — ${v.cooperado_nome} (${v.filial_nome})`;
+          }
 
           todasVisitas.push({
             id: Date.now() + Math.random(),
@@ -172,6 +178,8 @@ const Registro = () => {
             planejamento_id: v.planejamento_id,
             cooperado_id: v.cooperado_id,
             nome: nomeGerado || "⚠️ Atividade Inválida / Cooperado Removido",
+            acao: v.evento_nome ? "evento" : "visita",
+            evento_nome: v.evento_nome,
             cooperado: v.cooperado_id ? {
               id: v.cooperado_id,
               nome: v.cooperado_nome || "",
@@ -281,7 +289,7 @@ const Registro = () => {
             ...v,
             cooperado,
             cooperado_id: cooperado?.id,
-            nome: cooperado ? `${cooperado.matricula} — ${cooperado.nome} (${cooperado.filial.nome})` : "",
+            nome: v.acao === "evento" ? v.nome : (cooperado ? `${cooperado.matricula} — ${cooperado.nome} (${cooperado.filial.nome})` : ""),
             registrado: false,
           }
           : v
@@ -351,8 +359,12 @@ const Registro = () => {
       return;
     }
     if (visita.resultado === "Negociação" && visita.negociacao) {
+      if (visita.acao === "evento" && !visita.cooperado) {
+        toast.error("Selecione o cooperado negociado no evento.");
+        return;
+      }
       const n = visita.negociacao;
-      if (!n.viaRosa || !n.valor || !n.canal || !n.matricula) {
+      if (!n.viaRosa || !n.valor || !n.canal) {
         toast.error("Preencha todos os dados da negociação.");
         return;
       }
@@ -420,10 +432,10 @@ const Registro = () => {
         </button>
         <div className="flex items-center gap-3">
           <div className="w-16 h-16 flex-shrink-0 flex items-center justify-center">
-            <img 
-              src={iconRegistro} 
-              alt="Icone Registro" 
-              className="w-full h-full object-contain drop-shadow-2xl" 
+            <img
+              src={iconRegistro}
+              alt="Icone Registro"
+              className="w-full h-full object-contain drop-shadow-2xl"
             />
           </div>
           <div className="flex flex-col">
@@ -469,7 +481,7 @@ const Registro = () => {
               <span className="text-lg">⚠️</span> Registro Bloqueado
             </h3>
             <p className="text-sm text-red-200/90 leading-tight">
-              O dia selecionado é um feriado (<strong>{diaFeriado.nome}</strong>).<br/>
+              O dia selecionado é um feriado (<strong>{diaFeriado.nome}</strong>).<br />
               O registro de atividades está desativado.
             </p>
           </div>
@@ -517,19 +529,19 @@ const Registro = () => {
                           </Select>
 
                           {visita.acao === "evento" ? (
-                             <Input
-                                placeholder="Nome do Evento"
-                                value={visita.evento_nome || ""}
-                                onChange={(e) => updateVisita(visita.id, "evento_nome", e.target.value)}
-                                className="h-12 text-base"
-                                disabled={visita.registrado}
-                             />
+                            <Input
+                              placeholder="Nome do Evento"
+                              value={visita.evento_nome || ""}
+                              onChange={(e) => updateVisita(visita.id, "evento_nome", e.target.value)}
+                              className="h-12 text-base"
+                              disabled={visita.registrado}
+                            />
                           ) : (
-                             <CooperadoSearch
-                               value={visita.cooperado || null}
-                               onChange={(coop) => updateCooperadoExtra(visita.id, coop)}
-                               disabled={visita.registrado}
-                             />
+                            <CooperadoSearch
+                              value={visita.cooperado || null}
+                              onChange={(coop) => updateCooperadoExtra(visita.id, coop)}
+                              disabled={visita.registrado}
+                            />
                           )}
                         </div>
                       ) : (
@@ -541,6 +553,14 @@ const Registro = () => {
                             <p className="text-xs text-white/70 font-medium tracking-wide">
                               ({visita.nome.split('(')[1]}
                             </p>
+                          )}
+                          {visita.acao === "evento" && visita.resultado === "Negociação" && visita.cooperado && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 border-white/30 text-white bg-white/10">
+                                {visita.cooperado.matricula}
+                              </Badge>
+                              <span className="text-xs font-bold text-white/90 truncate">{visita.cooperado.nome}</span>
+                            </div>
                           )}
                         </div>
                       )}
@@ -635,6 +655,17 @@ const Registro = () => {
 
                         {expandedId === visita.id && (
                           <div className="space-y-3 animate-fade-in">
+                            {visita.acao === "evento" && (
+                              <div className="space-y-1.5 pt-1 mb-2">
+                                <label className="text-[11px] font-bold text-white/70 uppercase tracking-widest pl-1 block">Cooperado Negociado</label>
+                                <CooperadoSearch
+                                  value={visita.cooperado || null}
+                                  onChange={(coop) => updateCooperadoExtra(visita.id, coop)}
+                                  disabled={visita.registrado}
+                                  placeholder="Busque por nome ou matrícula"
+                                />
+                              </div>
+                            )}
                             <Input
                               placeholder="Nº da Via Rosa Ou Nº do Pedido"
                               value={visita.negociacao.viaRosa}

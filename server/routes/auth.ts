@@ -68,7 +68,7 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
         const variants = celularVariants(celularClean);
         const placeholders = variants.map(() => "?").join(", ");
         const autorizado = db.exec(
-            `SELECT id, cargo, matricula FROM celulares_autorizados WHERE numero IN (${placeholders}) AND ativo = 1`,
+            `SELECT id, cargo, matricula, fornecedor FROM celulares_autorizados WHERE numero IN (${placeholders}) AND ativo = 1`,
             variants
         );
         if (autorizado.length === 0 || autorizado[0].values.length === 0) {
@@ -78,6 +78,7 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
 
         const roleFromDb = autorizado[0].values[0][1] as string | null;
         const matriculaFromDb = autorizado[0].values[0][2] as string | null;
+        const fornecedorFromDb = autorizado[0].values[0][3] as string | null;
         const userCargo = roleFromDb?.trim() || "consultor";
 
         // Validação Estrita da Matrícula
@@ -101,8 +102,8 @@ router.post("/register", async (req: Request, res: Response): Promise<void> => {
 
         // Inserir usuário
         db.run(
-            "INSERT INTO users (nome, matricula, celular, senha_hash, device_fingerprint, role) VALUES (?, ?, ?, ?, ?, ?)",
-            [nome, matricula, celularClean, senha_hash, device_fingerprint || null, userCargo]
+            "INSERT INTO users (nome, matricula, celular, senha_hash, device_fingerprint, role, fornecedor) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [nome, matricula, celularClean, senha_hash, device_fingerprint || null, userCargo, fornecedorFromDb]
         );
 
         saveDatabase();
@@ -138,7 +139,7 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
         );
 
         if (result.length === 0 || result[0].values.length === 0) {
-            res.status(401).json({ error: "Celular ou senha incorretos" });
+            res.status(401).json({ error: "Cadastro não encontrado para este celular." });
             return;
         }
 
@@ -155,7 +156,7 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
         // Verificar senha
         const senhaCorreta = await bcrypt.compare(senha, user.senha_hash);
         if (!senhaCorreta) {
-            res.status(401).json({ error: "Celular ou senha incorretos" });
+            res.status(401).json({ error: "Senha incorreta." });
             return;
         }
 

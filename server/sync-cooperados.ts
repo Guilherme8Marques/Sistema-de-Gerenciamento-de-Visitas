@@ -26,6 +26,7 @@ interface CsvRow {
     Filial: string;
     "Tipo de registro da conta": string;
     "Classificação": string;
+    "Tipo de cliente"?: string;
 }
 
 /**
@@ -35,7 +36,10 @@ function findCsvFile(): string | null {
     if (!fs.existsSync(DADOS_DIR)) return null;
     const files = fs.readdirSync(DADOS_DIR);
 
-    // Prioridade: report*.csv > cooperados.csv > qualquer .csv
+    // Prioridade máxima para cooperados_terceiros.csv
+    const cooperadosTerceirosFile = files.find(f => /^cooperados_terceiros\.csv$/i.test(f));
+    if (cooperadosTerceirosFile) return path.join(DADOS_DIR, cooperadosTerceirosFile);
+
     const reportFile = files.find(f => /^report.*\.csv$/i.test(f));
     if (reportFile) return path.join(DADOS_DIR, reportFile);
 
@@ -100,18 +104,19 @@ export function sincronizarCooperadosCSV(): void {
         }
 
         // ── Passo 2: Extrair cooperados únicos (por matrícula) ──
-        const cooperadosMap = new Map<string, { nome: string; filialCodigo: string }>();
+        const cooperadosMap = new Map<string, { nome: string; filialCodigo: string; tipo: string }>();
 
         for (const row of records) {
             const matricula = row.Matricula?.trim();
             const nome = row["Nome da conta"]?.trim();
             const filialRaw = row.Filial?.trim();
+            const tipo = row["Tipo de cliente"]?.trim() || "Cooperado";
             if (!matricula || !nome || !filialRaw) continue;
 
             const filialCodigo = filialRaw.split(":")[0]?.trim() || "";
 
             if (!cooperadosMap.has(matricula)) {
-                cooperadosMap.set(matricula, { nome, filialCodigo });
+                cooperadosMap.set(matricula, { nome, filialCodigo, tipo });
             }
         }
 
@@ -149,19 +154,25 @@ export function sincronizarCooperadosCSV(): void {
         // Inserir cooperados
         const cooperadoIdMap = new Map<string, number>();
         let cooperadoCount = 0;
+        let terceirosCount = 0;
 
         for (const [matricula, coop] of cooperadosMap) {
             const filialId = filialIdMap.get(coop.filialCodigo);
             if (!filialId) continue;
 
             db.run(
-                "INSERT INTO cooperados (nome, filial_id, matricula) VALUES (?, ?, ?)",
-                [coop.nome, filialId, matricula]
+                "INSERT INTO cooperados (nome, filial_id, matricula, tipo) VALUES (?, ?, ?, ?)",
+                [coop.nome, filialId, matricula, coop.tipo]
             );
             const result = db.exec("SELECT last_insert_rowid()");
             const id = result[0].values[0][0] as number;
             cooperadoIdMap.set(matricula, id);
-            cooperadoCount++;
+            
+            if (coop.tipo === "Terceiro") {
+                terceirosCount++;
+            } else {
+                cooperadoCount++;
+            }
         }
 
         // Inserir propriedades
@@ -181,7 +192,7 @@ export function sincronizarCooperadosCSV(): void {
         saveDatabase();
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-        console.log(`   ✅ Filiais: ${filialCount} | Cooperados: ${cooperadoCount} | Propriedades: ${propCount}`);
+        console.log(`   ✅ Filiais: ${filialCount} | Cooperados: ${cooperadoCount} | Terceiros: ${terceirosCount} | Propriedades: ${propCount}`);
         console.log(`   ⏱️  Concluído em ${elapsed}s\n`);
 
     } catch (error) {

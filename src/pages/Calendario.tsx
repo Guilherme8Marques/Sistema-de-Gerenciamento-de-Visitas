@@ -40,7 +40,7 @@ const resultadoConfig: Record<string, { label: string; color: string; icon: type
     "Atendimento": { label: "Realizada - Atendimento", color: "text-green-600", icon: CheckCircle2 },
     "Negociação": { label: "Realizada - Negociação", color: "text-blue-600", icon: MapPin },
     "Avaliação do Campo Experimental": { label: "Realizada - Aval. Campo", color: "text-orange-600", icon: Clock },
-    "Visita Não Executada": { label: "Não Executada", color: "text-red-500", icon: XCircle },
+    "Atividade Não Executada": { label: "Não Executada", color: "text-red-500", icon: XCircle },
     "Agendado": { label: "Agendado / Pendente", color: "text-amber-500", icon: Clock },
 };
 

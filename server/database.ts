@@ -228,6 +228,8 @@ function createTables(): void {
       FOREIGN KEY (filial_id) REFERENCES filiais(id)
     );
   `);
+  
+  try { db.run("ALTER TABLE cooperados ADD COLUMN tipo TEXT DEFAULT 'Cooperado'"); } catch { }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS propriedades (

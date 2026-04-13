@@ -117,26 +117,38 @@ const Configuracoes = () => {
 
   return (
     <div className="flex-1 flex flex-col">
-      <header className="relative z-10 flex items-center gap-3 px-5 pt-6 pb-4">
-        <button
-          onClick={() => navigate("/menu")}
-          className="bg-white/10 w-9 h-9 rounded-xl flex items-center justify-center transition-transform active:scale-95 shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5 text-primary-foreground" />
-        </button>
+      <header className="relative z-10 flex flex-col gap-3 px-5 pt-6 pb-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center bg-white/10 rounded-2xl">
-            <KeySquare className="w-7 h-7 text-primary-foreground" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
-              AgroMapa
-            </span>
-            <h1 className="text-3xl font-display font-bold text-primary-foreground leading-tight">
-              Configurações
-            </h1>
+          <button
+            onClick={() => navigate("/menu")}
+            className="bg-white/10 w-9 h-9 rounded-xl flex items-center justify-center transition-transform active:scale-95 shrink-0"
+          >
+            <ArrowLeft className="w-5 h-5 text-primary-foreground" />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 flex-shrink-0 flex items-center justify-center bg-white/10 rounded-2xl">
+              <KeySquare className="w-7 h-7 text-primary-foreground" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-extrabold text-primary-foreground/50 uppercase tracking-[0.2em] leading-none mb-1">
+                AgroMapa
+              </span>
+              <h1 className="text-3xl font-display font-bold text-primary-foreground leading-tight">
+                Configurações
+              </h1>
+            </div>
           </div>
         </div>
+        
+        {/* Contador de Usuários */}
+        {!loading && (
+           <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 border border-white/20 rounded-full self-start md:self-auto drop-shadow-md backdrop-blur-md animate-fade-in">
+              <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+              <span className="text-xs font-semibold text-white tracking-wide">
+                TOTAL: {users.length} {users.length === 1 ? "USUÁRIO" : "USUÁRIOS"}
+              </span>
+           </div>
+        )}
       </header>
 
       <main className="relative z-10 flex-1 px-4 py-6">

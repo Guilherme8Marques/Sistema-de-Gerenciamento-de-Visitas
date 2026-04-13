@@ -281,8 +281,8 @@ const Login = () => {
 
         {/* Forgot password */}
         <div className="text-center mt-4">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => setIsResetModalOpen(true)}
             className="text-sm text-gold font-semibold hover:underline transition-colors"
           >
@@ -306,7 +306,7 @@ const Login = () => {
             Inteligência de Mercado / Comercial Insumos
           </p>
           <p className="text-[8px] text-white/30 font-mono mt-2">
-            v1.0.2 - 30/03
+            v1.0.5 - 08/04
           </p>
         </div>
       </div>
@@ -371,9 +371,9 @@ const Login = () => {
                     className="w-full glass-input rounded-xl px-4 py-3 text-center tracking-[0.5em] font-mono text-lg font-bold text-white placeholder:text-white/20"
                   />
                 </div>
-                
+
                 {resetError && <div className="text-xs text-destructive bg-destructive/10 p-2 rounded-lg text-center font-medium">{resetError}</div>}
-                
+
                 <button
                   type="submit"
                   disabled={resetLoading}

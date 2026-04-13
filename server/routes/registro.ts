@@ -26,10 +26,11 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
             `SELECT v.id, v.planejamento_id, v.cooperado_id, v.data_visita,
               v.resultado, v.doencas_pragas, v.negociacao_dados, v.extra,
               c.nome as cooperado_nome, c.matricula as cooperado_matricula,
-              f.id as filial_id, f.nome as filial_nome, v.evento_nome
+              f.id as filial_id, f.nome as filial_nome, v.evento_nome, p.evento_nome as p_evento_nome
        FROM visitas v
        LEFT JOIN cooperados c ON v.cooperado_id = c.id
        LEFT JOIN filiais f ON c.filial_id = f.id
+       LEFT JOIN planejamento p ON v.planejamento_id = p.id
        WHERE v.user_id = ? AND v.data_visita = ?
        ORDER BY v.created_at`,
             [userId, data]
@@ -62,7 +63,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
                 cooperado_matricula: row[9],
                 filial_id: row[10],
                 filial_nome: row[11],
-                evento_nome: row[12],
+                evento_nome: row[12] || row[13], // fallback para curar registros antigos sem nome
                 registrado: true,
             }))
             : [];

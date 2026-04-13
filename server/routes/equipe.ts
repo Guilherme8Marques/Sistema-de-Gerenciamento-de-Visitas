@@ -42,11 +42,29 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
                 )
             `;
 
+            // Busca Tokenizada (múltiplas palavras)
+            const tokens = buscaNormalizada.split(" ").filter(t => t.length > 0);
+            const nomeConditions = tokens.map(() => `${safeNomeCol} LIKE ?`).join(" AND ");
+            const nomeBindings = tokens.map(t => `%${t}%`);
+            
+            const matriculaParam = `%${buscaNormalizada}%`;
+            const orderMatriculaExata = busca.trim();
+            const orderMatriculaLike = `${busca.trim()}%`;
+            const orderNomeLike = `${buscaNormalizada}%`;
+
+            const queryBindings = [
+                ...nomeBindings,
+                matriculaParam,
+                orderMatriculaExata,
+                orderMatriculaLike,
+                orderNomeLike
+            ];
+
             result = db.exec(`
                 SELECT id, nome, matricula, cargo, fornecedor
                 FROM equipe_vendas
                 WHERE ativo = 1
-                  AND (${safeNomeCol} LIKE ? OR matricula LIKE ?)
+                  AND ((${nomeConditions}) OR matricula LIKE ?)
                 ORDER BY 
                     CASE 
                         WHEN matricula = ? THEN 0
@@ -56,7 +74,7 @@ router.get("/", authMiddleware, (req: Request, res: Response): void => {
                     END,
                     nome ASC
                 LIMIT 20
-            `, [buscaParam, buscaParam, busca.trim(), `${busca.trim()}%`, `${buscaNormalizada}%`]);
+            `, queryBindings);
 
             if (result.length === 0 || result[0].values.length === 0) {
                 res.json([]);

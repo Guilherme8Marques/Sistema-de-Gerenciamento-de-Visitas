@@ -314,7 +314,7 @@ router.get(
             }
 
             const result = db.exec(
-                 `SELECT 
+                `SELECT 
                     v.id,
                     v.data_visita,
                     v.resultado,

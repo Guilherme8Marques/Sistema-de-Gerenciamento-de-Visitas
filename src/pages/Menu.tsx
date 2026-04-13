@@ -21,7 +21,7 @@ const menuItems = [
     id: "registro",
     iconSrc: iconRegistro,
     title: "Registro",
-    description: "Registre as visitas realizadas",
+    description: "Registre as atividades realizadas",
     color: "from-secondary to-brown-light",
     path: "/registro",
   },
@@ -151,7 +151,7 @@ const Menu = () => {
             Inteligência de Mercado / Comercial Insumos
           </p>
           <p className="text-[8px] text-white/10 font-mono mt-1">
-            v1.0.2 - 30/03
+            v1.0.5 - 08/04
           </p>
         </div>
       </div>

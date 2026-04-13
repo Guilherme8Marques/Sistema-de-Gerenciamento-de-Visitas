@@ -188,7 +188,7 @@ export default function Relatorios() {
             dataInicialFiltro = baseDate;
             dataFinalFiltro = new Date(anoSelecionado, 11, 31, 23, 59, 59);
             labelPeriodoAux = `Ano Inteiro`;
-            
+
             if (semanaSelecionada !== "todas") {
                 setSemanaSelecionada("todas");
                 return;
@@ -424,7 +424,7 @@ export default function Relatorios() {
         const ws = XLSX.utils.json_to_sheet(dataRows, { header: headers });
         const wb = XLSX.utils.book_new();
         ws['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 40 }];
-        
+
         XLSX.utils.book_append_sheet(wb, ws, "Planejamento Bruto");
 
         const nomeArquivo = semanaSelecionada === "todas"
@@ -787,20 +787,20 @@ export default function Relatorios() {
                                     </div>
                                 ) : (
                                     <div className="overflow-x-auto custom-scrollbar w-full">
-                                        <table className="w-full text-left border-separate border-spacing-0 table-fixed min-w-[1000px]">
+                                        <table className="w-full text-left border-separate border-spacing-0 table-fixed min-w-[850px]">
                                             <thead>
                                                 <tr className="bg-black/30 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
-                                                    <th className="px-4 py-3 text-center border-b border-white/10 w-28">
+                                                    <th className="px-4 py-3 text-center border-b border-white/10 w-20">
                                                         Matrícula
                                                     </th>
-                                                    <th className="px-4 py-3 border-b border-white/10 w-64">
+                                                    <th className="px-4 py-3 border-b border-white/10 w-52">
                                                         Colaborador
                                                     </th>
-                                                    <th className="px-4 py-3 border-b border-white/10 w-32">
+                                                    <th className="px-4 py-3 border-b border-white/10 w-28">
                                                         Equipe
                                                     </th>
                                                     {diasUteis.map((d) => (
-                                                        <th key={d.dateKey} className="px-4 py-3 text-center border-b border-white/10 w-44">
+                                                        <th key={d.dateKey} className="px-4 py-3 text-center border-b border-white/10 w-36">
                                                             <div className="text-primary-foreground font-extrabold text-xs">{d.dayNum}</div>
                                                             <div className="text-[9px] text-white/50 capitalize font-medium">{d.weekday}</div>
                                                         </th>
@@ -827,7 +827,7 @@ export default function Relatorios() {
                                                                 <td className="px-4 py-3 align-top">
                                                                     <span className="text-xs font-semibold px-2 py-1 bg-white/5 border border-white/10 rounded-md text-white/80">{consultor.fornecedor}</span>
                                                                 </td>
-                                                                    {diasUteis.map((d) => {
+                                                                {diasUteis.map((d) => {
                                                                     const visitas = getVisitasDia(consultor, d.dateKey);
                                                                     totalConsultor += visitas.length;
                                                                     return (
