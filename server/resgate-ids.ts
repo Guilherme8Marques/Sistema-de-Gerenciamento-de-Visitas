@@ -88,7 +88,12 @@ export async function executarResgateIds() {
 
         console.log(`   🔸 De/Para montado: ${mappedCount} equivalências encontradas! (Faltaram: ${missingCount})\n`);
 
-        // INICIAR RESGATE
+        // INICIAR RESGATE COM MATEMÁTICA CÍCLICA
+        const moduloAntigo = oldIdsMap.size; // 21616
+        const validNewIds = new Set(newIdsMap.values()); // IDs validos atualmente no PRD
+        const unmappedPlan = new Set<number>();
+        const unmappedVisitas = new Set<number>();
+
         console.log("🔄 Atualizando tabela PLANEJAMENTO...");
         const queryPlan = db.exec("SELECT id, cooperado_id FROM planejamento WHERE cooperado_id IS NOT NULL");
         let planAtualizados = 0;
@@ -99,10 +104,22 @@ export async function executarResgateIds() {
                 const idPlanejamento = row[0] as number;
                 const oldCooperadoId = row[1] as number;
 
-                const newCooperadoId = deParaMap.get(oldCooperadoId);
-                if (newCooperadoId && newCooperadoId !== oldCooperadoId) {
-                    db.run("UPDATE planejamento SET cooperado_id = ? WHERE id = ?", [newCooperadoId, idPlanejamento]);
-                    planAtualizados++;
+                if (validNewIds.has(oldCooperadoId)) continue; // Já é válido (Agendado hoje)
+
+                // Encontrar o "molde" desse ID na 1ª geração
+                const originalId = ((oldCooperadoId - 1) % moduloAntigo) + 1;
+                const matricula = oldIdsMap.get(originalId);
+
+                if (matricula) {
+                    const newCooperadoId = newIdsMap.get(matricula);
+                    if (newCooperadoId && newCooperadoId !== oldCooperadoId) {
+                        db.run("UPDATE planejamento SET cooperado_id = ? WHERE id = ?", [newCooperadoId, idPlanejamento]);
+                        planAtualizados++;
+                    } else {
+                        unmappedPlan.add(oldCooperadoId);
+                    }
+                } else {
+                    unmappedPlan.add(oldCooperadoId);
                 }
             }
             db.run("COMMIT;");
@@ -118,10 +135,21 @@ export async function executarResgateIds() {
                 const idVisita = row[0] as number;
                 const oldCooperadoId = row[1] as number;
 
-                const newCooperadoId = deParaMap.get(oldCooperadoId);
-                if (newCooperadoId && newCooperadoId !== oldCooperadoId) {
-                    db.run("UPDATE visitas SET cooperado_id = ? WHERE id = ?", [newCooperadoId, idVisita]);
-                    visAtualizadas++;
+                if (validNewIds.has(oldCooperadoId)) continue; // Já é válido
+
+                const originalId = ((oldCooperadoId - 1) % moduloAntigo) + 1;
+                const matricula = oldIdsMap.get(originalId);
+
+                if (matricula) {
+                    const newCooperadoId = newIdsMap.get(matricula);
+                    if (newCooperadoId && newCooperadoId !== oldCooperadoId) {
+                        db.run("UPDATE visitas SET cooperado_id = ? WHERE id = ?", [newCooperadoId, idVisita]);
+                        visAtualizadas++;
+                    } else {
+                        unmappedVisitas.add(oldCooperadoId);
+                    }
+                } else {
+                    unmappedVisitas.add(oldCooperadoId);
                 }
             }
             db.run("COMMIT;");
@@ -131,8 +159,9 @@ export async function executarResgateIds() {
 
         console.log("\n==========================================");
         console.log("✅ RESGATE CONCLUÍDO COM SUCESSO! ✅");
-        console.log(`🗓️  Planejamentos corrigidos: ${planAtualizados}`);
-        console.log(`🤝 Visitas corrigidas: ${visAtualizadas}`);
+        console.log(`🗓️  Planejamentos corrigidos: ${planAtualizados} (Falhas: ${unmappedPlan.size})`);
+        console.log(`🤝 Visitas corrigidas: ${visAtualizadas} (Falhas: ${unmappedVisitas.size})`);
+        if (unmappedPlan.size > 0) console.log("   Exemplos de IDs cegos de Planejamento:", Array.from(unmappedPlan).slice(0, 5));
         console.log("==========================================\n");
 
     } catch (err) {
