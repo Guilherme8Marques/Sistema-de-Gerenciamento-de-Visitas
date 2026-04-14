@@ -14,7 +14,7 @@ interface CsvRow {
     Filial: string;
 }
 
-export function executarResgateIds() {
+export async function executarResgateIds() {
     console.log("==========================================");
     console.log("🚀 INICIANDO SCRIPT DE RESGATE DE IDs 🚀");
     console.log("==========================================\n");
@@ -57,7 +57,7 @@ export function executarResgateIds() {
 
         console.log(`   🔸 ${oldIdsMap.size} IDs originais simulados mapeados.`);
 
-        initDatabase();
+        await initDatabase();
         const db = getDb();
 
         // Pegar todos os cooperados ATUAIS do banco gerados hoje
