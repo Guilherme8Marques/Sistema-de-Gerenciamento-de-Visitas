@@ -38,3 +38,13 @@ pub_*
 id_rsa*
 .env*
 ! .env.example
+
+# Arquivos temporários e de debug (gerados durante manutenção)
+*.diff
+corrupted.db
+db_dump.txt
+db_output.txt
+ip.json
+ip.txt
+server/db_audit.log
+server/.db_lock
