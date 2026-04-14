@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { parse } from "csv-parse/sync";
-import { getDb, saveDatabase } from "./database.js";
+import { getDb, saveDatabase, initDatabase } from "./database.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,6 +57,7 @@ export function executarResgateIds() {
 
         console.log(`   🔸 ${oldIdsMap.size} IDs originais simulados mapeados.`);
 
+        initDatabase();
         const db = getDb();
 
         // Pegar todos os cooperados ATUAIS do banco gerados hoje
