@@ -391,8 +391,12 @@ const Registro = () => {
         planejamento_id: visita.planejamento_id || null,
       };
 
-      const resp = await fetch("/api/registro", {
-        method: "POST",
+      const isUpdate = !!visita.dbId;
+      const url = isUpdate ? `/api/registro/${visita.dbId}` : "/api/registro";
+      const method = isUpdate ? "PUT" : "POST";
+
+      const resp = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getToken()}`,
@@ -410,9 +414,15 @@ const Registro = () => {
       setVisitas((prev) =>
         prev.map((v) => v.id === id ? { ...v, registrado: true, registrando: false, dbId: saved.id } : v)
       );
-      toast.success("Visita registrada com sucesso!");
+      const isEvento = visita.acao === "evento";
+      const entityName = isEvento ? "Atividade" : "Visita";
+      const actionName = isUpdate ? "atualizada" : "registrada";
+      toast.success(`${entityName} ${actionName} com sucesso!`);
     } catch (err: any) {
-      toast.error(err.message || "Erro ao registrar visita.");
+      const isEvento = visita.acao === "evento";
+      const entityName = isEvento ? "Atividade" : "Visita";
+      const actionName = isUpdate ? "atualizar" : "registrar";
+      toast.error(err.message || `Erro ao ${actionName} ${entityName.toLowerCase()}.`);
       setVisitas((prev) => prev.map((v) => v.id === id ? { ...v, registrando: false } : v));
     }
   };

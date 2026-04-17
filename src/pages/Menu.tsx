@@ -151,7 +151,7 @@ const Menu = () => {
             Inteligência de Mercado / Comercial Insumos
           </p>
           <p className="text-[8px] text-white/10 font-mono mt-1">
-            v1.0.5 - 08/04
+            v1.1.1 - 14/04
           </p>
         </div>
       </div>

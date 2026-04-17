@@ -114,84 +114,32 @@ async function start() {
         console.warn("⚠️  [AVISO] Nao foi possivel ler estatisticas do banco na inicializacao.");
     }
 
-    // ── MIGRACAO AUTOMATICA: corrigir cooperado_id orfaos em planejamento/visitas ──
-    // Isso corrige o estrago causado pelo antigo sync-cooperados que fazia DELETE FROM.
-    // Roda a cada startup e e idempotente (nao faz nada se nao houver orfaos).
+    // ── DIAGNÓSTICO: contar cooperado_ids órfãos (READ-ONLY, sem alterar nada) ──
+    // A antiga migração automática por módulo (%) foi REMOVIDA pois comprovou-se
+    // que ligava visitas aos cooperados ERRADOS. O sync-cooperados atual já usa
+    // UPSERT e preserva IDs, então órfãos não devem mais aparecer.
     try {
-        const matResult = db.exec("SELECT id, matricula FROM cooperados ORDER BY id");
-        const matToId = new Map<string, number>();
-        if (matResult.length > 0) {
-            for (const row of matResult[0].values) matToId.set(row[1] as string, row[0] as number);
-        }
+        const planOrfaos = db.exec(
+            `SELECT COUNT(*) FROM planejamento p
+             LEFT JOIN cooperados c ON p.cooperado_id = c.id
+             WHERE p.cooperado_id IS NOT NULL AND c.id IS NULL`
+        );
+        const visOrfaos = db.exec(
+            `SELECT COUNT(*) FROM visitas v
+             LEFT JOIN cooperados c ON v.cooperado_id = c.id
+             WHERE v.cooperado_id IS NOT NULL AND c.id IS NULL`
+        );
+        const planCount = planOrfaos.length > 0 ? planOrfaos[0].values[0][0] as number : 0;
+        const visCount = visOrfaos.length > 0 ? visOrfaos[0].values[0][0] as number : 0;
 
-        const totalCoops = matToId.size;
-        if (totalCoops > 0) {
-            // Mapa posicao (1-based) -> matricula (reproduz a ordem de insercao original)
-            const posToMat = new Map<number, string>();
-            let pos = 1;
-            for (const [mat] of matToId) {
-                posToMat.set(pos, mat);
-                pos++;
-            }
-
-            // Corrigir planejamento orfao (cooperado_id aponta para ID inexistente)
-            const planOrfaos = db.exec(
-                `SELECT p.id, p.cooperado_id FROM planejamento p 
-                 LEFT JOIN cooperados c ON p.cooperado_id = c.id 
-                 WHERE p.cooperado_id IS NOT NULL AND c.id IS NULL`
-            );
-            let planFixed = 0;
-            if (planOrfaos.length > 0 && planOrfaos[0].values.length > 0) {
-                console.log(`🔧 [MIGRACAO] ${planOrfaos[0].values.length} planejamentos orfaos detectados.`);
-                for (const row of planOrfaos[0].values) {
-                    const planId = row[0] as number;
-                    const oldCoopId = row[1] as number;
-                    // Calculo ciclico: o ID antigo pertence a uma "geracao" de INSERT.
-                    // Usando modulo para voltar a posicao original.
-                    const originalPos = ((oldCoopId - 1) % totalCoops) + 1;
-                    const mat = posToMat.get(originalPos);
-                    if (mat) {
-                        const newId = matToId.get(mat);
-                        if (newId) {
-                            db.run("UPDATE planejamento SET cooperado_id = ? WHERE id = ?", [newId, planId]);
-                            planFixed++;
-                        }
-                    }
-                }
-                console.log(`   ✅ Planejamentos corrigidos: ${planFixed}`);
-            }
-
-            // Corrigir visitas orfas
-            const visOrfaos = db.exec(
-                `SELECT v.id, v.cooperado_id FROM visitas v 
-                 LEFT JOIN cooperados c ON v.cooperado_id = c.id 
-                 WHERE v.cooperado_id IS NOT NULL AND c.id IS NULL`
-            );
-            let visFixed = 0;
-            if (visOrfaos.length > 0 && visOrfaos[0].values.length > 0) {
-                console.log(`🔧 [MIGRACAO] ${visOrfaos[0].values.length} visitas orfas detectadas.`);
-                for (const row of visOrfaos[0].values) {
-                    const visId = row[0] as number;
-                    const oldCoopId = row[1] as number;
-                    const originalPos = ((oldCoopId - 1) % totalCoops) + 1;
-                    const mat = posToMat.get(originalPos);
-                    if (mat) {
-                        const newId = matToId.get(mat);
-                        if (newId) {
-                            db.run("UPDATE visitas SET cooperado_id = ? WHERE id = ?", [newId, visId]);
-                            visFixed++;
-                        }
-                    }
-                }
-                console.log(`   ✅ Visitas corrigidas: ${visFixed}`);
-            }
-
-            if (planFixed === 0 && visFixed === 0) {
-                console.log("✅ [MIGRACAO] Nenhum cooperado_id orfao. Tudo saudavel!");
-            }
+        if (planCount === 0 && visCount === 0) {
+            console.log("✅ [MIGRACAO] Nenhum cooperado_id orfao. Tudo saudavel!");
+        } else {
+            if (planCount > 0) console.warn(`⚠️  [DIAGNOSTICO] ${planCount} planejamentos com cooperado_id orfao (sem correcao automatica).`);
+            if (visCount > 0) console.warn(`⚠️  [DIAGNOSTICO] ${visCount} visitas com cooperado_id orfao (sem correcao automatica).`);
         }
     } catch (migErr) {
-        console.error("⚠️  [MIGRACAO] Erro ao corrigir IDs orfaos:", migErr);
+        console.error("⚠️  [DIAGNOSTICO] Erro ao verificar IDs orfaos:", migErr);
     }
 
     // Salvar o estado do banco apos sync + migracao

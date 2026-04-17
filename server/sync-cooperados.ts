@@ -36,15 +36,11 @@ function findCsvFile(): string | null {
     if (!fs.existsSync(DADOS_DIR)) return null;
     const files = fs.readdirSync(DADOS_DIR);
 
-    // Prioridade máxima para cooperados_terceiros.csv
-    const cooperadosTerceirosFile = files.find(f => /^cooperados_terceiros\.csv$/i.test(f));
-    if (cooperadosTerceirosFile) return path.join(DADOS_DIR, cooperadosTerceirosFile);
+    const cooperadosFile = files.find(f => /^cooperados\.csv$/i.test(f));
+    if (cooperadosFile) return path.join(DADOS_DIR, cooperadosFile);
 
     const reportFile = files.find(f => /^report.*\.csv$/i.test(f));
     if (reportFile) return path.join(DADOS_DIR, reportFile);
-
-    const cooperadosFile = files.find(f => /^cooperados\.csv$/i.test(f));
-    if (cooperadosFile) return path.join(DADOS_DIR, cooperadosFile);
 
     const anyCSV = files.find(f => /\.csv$/i.test(f));
     if (anyCSV) return path.join(DADOS_DIR, anyCSV);
@@ -130,55 +126,63 @@ export function sincronizarCooperadosCSV(): void {
             propriedadesList.push({ matricula, nome: propriedade });
         }
 
-        // ── Passo 4: Aplicar no banco (MÉTODO SEGURO SEM DELETE DE COOPERADO) ──
-        // Isso preserva os IDs para o relacionamento histórico em planejamento e visitas
+        // ── Passo 4: Aplicar no banco (FULL SYNC com inativação) ──
+        // 1. Marca todos como ativo=0
+        // 2. Upsert do CSV → marca ativo=1
+        // 3. Hard delete quem ficou ativo=0 E não tem visitas/planejamento
+        // 4. Quem tem referências históricas permanece inativo (invisível na busca)
         
-        // --- 4.1 Filiais ---
-        const fDbMap = new Map<string, number>();
-        const resFiliais = db.exec("SELECT id, nome FROM filiais");
-        if (resFiliais.length > 0) {
-            for (const row of resFiliais[0].values) fDbMap.set(row[1] as string, row[0] as number);
-        }
-
-        const filialIdMap = new Map<string, number>();
-        let filialCount = fDbMap.size; // manter contador com as que já existem
-
-        for (const [codigo, filial] of filiaisSet) {
-            let id = fDbMap.get(filial.nome);
-            if (!id) {
-                db.run("INSERT INTO filiais (nome, cidade) VALUES (?, ?)", [filial.nome, filial.nome]);
-                const result = db.exec("SELECT last_insert_rowid()");
-                id = result[0].values[0][0] as number;
-                fDbMap.set(filial.nome, id);
-                filialCount++;
-            }
-            filialIdMap.set(codigo, id);
-        }
-
-        // --- 4.2 Cooperados ---
-        const cDbMap = new Map<string, number>();
-        const resCoop = db.exec("SELECT id, matricula FROM cooperados");
-        if (resCoop.length > 0) {
-            for (const row of resCoop[0].values) cDbMap.set(row[1] as string, row[0] as number);
-        }
-
         const cooperadoIdMap = new Map<string, number>();
         let cooperadoCount = 0;
-        let terceirosCount = 0;
 
-        for (const [matricula, coop] of cooperadosMap) {
+        db.run("BEGIN TRANSACTION");
+
+        try {
+            // --- 4.0 Inativar todos os cooperados antes do sync ---
+            db.run("UPDATE cooperados SET ativo = 0");
+
+            // --- 4.1 Filiais ---
+            const fDbMap = new Map<string, number>();
+            const resFiliais = db.exec("SELECT id, nome FROM filiais");
+            if (resFiliais.length > 0) {
+                for (const row of resFiliais[0].values) fDbMap.set(row[1] as string, row[0] as number);
+            }
+
+            const filialIdMap = new Map<string, number>();
+            let filialCount = fDbMap.size; // manter contador com as que já existem
+
+            for (const [codigo, filial] of filiaisSet) {
+                let id = fDbMap.get(filial.nome);
+                if (!id) {
+                    db.run("INSERT INTO filiais (nome, cidade) VALUES (?, ?)", [filial.nome, filial.nome]);
+                    const result = db.exec("SELECT last_insert_rowid()");
+                    id = result[0].values[0][0] as number;
+                    fDbMap.set(filial.nome, id);
+                    filialCount++;
+                }
+                filialIdMap.set(codigo, id);
+            }
+
+            // --- 4.2 Cooperados (Upsert + ativo=1) ---
+            const cDbMap = new Map<string, number>();
+            const resCoop = db.exec("SELECT id, matricula FROM cooperados");
+            if (resCoop.length > 0) {
+                for (const row of resCoop[0].values) cDbMap.set(row[1] as string, row[0] as number);
+            }
+
+            for (const [matricula, coop] of cooperadosMap) {
             const filialId = filialIdMap.get(coop.filialCodigo);
             if (!filialId) continue;
 
             let id = cDbMap.get(matricula);
             if (id) {
                 db.run(
-                    "UPDATE cooperados SET nome = ?, filial_id = ?, tipo = ? WHERE id = ?",
+                    "UPDATE cooperados SET nome = ?, filial_id = ?, tipo = ?, ativo = 1 WHERE id = ?",
                     [coop.nome, filialId, coop.tipo, id]
                 );
             } else {
                 db.run(
-                    "INSERT INTO cooperados (nome, filial_id, matricula, tipo) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO cooperados (nome, filial_id, matricula, tipo, ativo) VALUES (?, ?, ?, ?, 1)",
                     [coop.nome, filialId, matricula, coop.tipo]
                 );
                 const result = db.exec("SELECT last_insert_rowid()");
@@ -187,30 +191,58 @@ export function sincronizarCooperadosCSV(): void {
             }
             cooperadoIdMap.set(matricula, id);
             
-            if (coop.tipo === "Terceiro") terceirosCount++;
-            else cooperadoCount++;
+            cooperadoCount++;
         }
 
         // --- 4.3 Propriedades ---
         // Propriedades não são usadas como FK crítica, então podemos limpar para atualizar do CSV original de forma mais simples
-        db.run("DELETE FROM propriedades;");
-        let propCount = 0;
-        for (const prop of propriedadesList) {
-            const cooperadoId = cooperadoIdMap.get(prop.matricula);
-            if (!cooperadoId) continue;
+            db.run("DELETE FROM propriedades;");
+            let propCount = 0;
+            for (const prop of propriedadesList) {
+                const cooperadoId = cooperadoIdMap.get(prop.matricula);
+                if (!cooperadoId) continue;
 
-            db.run(
-                "INSERT INTO propriedades (nome, cooperado_id, endereco) VALUES (?, ?, ?)",
-                [prop.nome, cooperadoId, ""]
-            );
-            propCount++;
+                db.run(
+                    "INSERT INTO propriedades (nome, cooperado_id, endereco) VALUES (?, ?, ?)",
+                    [prop.nome, cooperadoId, ""]
+                );
+                propCount++;
+            }
+
+            // --- 4.4 Hard Delete: remover cooperados inativos SEM referências ---
+            const deleteResult = db.exec(`
+                SELECT COUNT(*) FROM cooperados 
+                WHERE ativo = 0 
+                AND id NOT IN (SELECT DISTINCT cooperado_id FROM visitas WHERE cooperado_id IS NOT NULL)
+                AND id NOT IN (SELECT DISTINCT cooperado_id FROM planejamento WHERE cooperado_id IS NOT NULL)
+            `);
+            const orphanCount = deleteResult.length > 0 ? deleteResult[0].values[0][0] as number : 0;
+
+            db.run(`
+                DELETE FROM cooperados 
+                WHERE ativo = 0 
+                AND id NOT IN (SELECT DISTINCT cooperado_id FROM visitas WHERE cooperado_id IS NOT NULL)
+                AND id NOT IN (SELECT DISTINCT cooperado_id FROM planejamento WHERE cooperado_id IS NOT NULL)
+            `);
+
+            // Contar quantos ficaram inativos (têm referências históricas)
+            const inativoResult = db.exec("SELECT COUNT(*) FROM cooperados WHERE ativo = 0");
+            const inativoCount = inativoResult.length > 0 ? inativoResult[0].values[0][0] as number : 0;
+
+            db.run("COMMIT");
+
+            saveDatabase();
+
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+            console.log(`   ✅ Filiais: ${filialCount} | Cooperados ativos: ${cooperadoCount} | Propriedades: ${propCount}`);
+            if (orphanCount > 0) console.log(`   🗑️  ${orphanCount} cooperados órfãos removidos (sem visitas/planejamento)`);
+            if (inativoCount > 0) console.log(`   ⚠️  ${inativoCount} cooperados inativos preservados (com histórico de visitas)`);
+            console.log(`   ⏱️  Concluído em ${elapsed}s\n`);
+
+        } catch (txError) {
+            db.run("ROLLBACK");
+            throw txError;
         }
-
-        saveDatabase();
-
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-        console.log(`   ✅ Filiais: ${filialCount} | Cooperados: ${cooperadoCount} | Terceiros: ${terceirosCount} | Propriedades: ${propCount}`);
-        console.log(`   ⏱️  Concluído em ${elapsed}s\n`);
 
     } catch (error) {
         console.error("❌ [AUTO-SYNC COOPERADOS] Erro na sincronização:", error);

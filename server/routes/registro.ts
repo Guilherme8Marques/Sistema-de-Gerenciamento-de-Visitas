@@ -128,9 +128,79 @@ router.post("/", authMiddleware, (req: Request, res: Response): void => {
         const result = db.exec("SELECT last_insert_rowid()");
         const id = result[0].values[0][0];
 
-        res.status(201).json({ id, message: "Visita registrada com sucesso" });
+        const isEvento = !!((body as any).evento_nome);
+        const entityName = isEvento ? "Atividade" : "Visita";
+
+        res.status(201).json({ id, message: `${entityName} registrada com sucesso` });
     } catch (error) {
-        console.error("Erro ao registrar visita:", error);
+        const body = req.body as RegistroBody;
+        const isEvento = !!((body as any).evento_nome);
+        const entityName = isEvento ? "Atividade" : "Visita";
+        console.error(`Erro ao registrar ${entityName.toLowerCase()}:`, error);
+        res.status(500).json({ error: "Erro interno do servidor" });
+    }
+});
+
+/**
+ * PUT /api/registro/:id
+ * Atualiza uma visita existente.
+ */
+router.put("/:id", authMiddleware, (req: Request, res: Response): void => {
+    try {
+        const db = getDb();
+        const userId = req.userId!;
+        const visitaId = parseInt(req.params.id);
+        const body = req.body as RegistroBody;
+
+        if (!body.data_visita || !body.resultado) {
+            res.status(400).json({ error: "data_visita e resultado são obrigatórios" });
+            return;
+        }
+
+        // Verificar se a visita pertence ao usuário
+        const existing = db.exec(
+            "SELECT id FROM visitas WHERE id = ? AND user_id = ?",
+            [visitaId, userId]
+        );
+
+        if (existing.length === 0 || existing[0].values.length === 0) {
+            res.status(404).json({ error: "Visita não encontrada" });
+            return;
+        }
+
+        const doencasPragas = JSON.stringify(body.doencas_pragas || []);
+        const negociacaoDados = body.negociacao_dados ? JSON.stringify(body.negociacao_dados) : null;
+
+        db.run(
+            `UPDATE visitas SET
+                cooperado_id = ?,
+                resultado = ?,
+                doencas_pragas = ?,
+                negociacao_dados = ?,
+                evento_nome = ?
+            WHERE id = ? AND user_id = ?`,
+            [
+                body.cooperado_id || null,
+                body.resultado,
+                doencasPragas,
+                negociacaoDados,
+                (body as any).evento_nome || null,
+                visitaId,
+                userId,
+            ]
+        );
+
+        saveDatabase();
+
+        const isEvento = !!((body as any).evento_nome);
+        const entityName = isEvento ? "Atividade" : "Visita";
+
+        res.json({ id: visitaId, message: `${entityName} atualizada com sucesso` });
+    } catch (error) {
+        const body = req.body as RegistroBody;
+        const isEvento = !!((body as any).evento_nome);
+        const entityName = isEvento ? "Atividade" : "Visita";
+        console.error(`Erro ao atualizar ${entityName.toLowerCase()}:`, error);
         res.status(500).json({ error: "Erro interno do servidor" });
     }
 });

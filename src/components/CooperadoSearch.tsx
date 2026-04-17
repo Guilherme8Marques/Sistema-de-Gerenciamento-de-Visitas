@@ -46,7 +46,6 @@ const CooperadoSearch = ({
     className = "",
 }: CooperadoSearchProps) => {
     const [query, setQuery] = useState("");
-    const [filtro, setFiltro] = useState<"todos" | "cooperados" | "terceiros">("todos");
     const [results, setResults] = useState<CooperadoOption[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -59,7 +58,7 @@ const CooperadoSearch = ({
     const isMobile = useIsMobile();
 
     // Buscar cooperados na API
-    const searchCooperados = useCallback(async (busca: string, tipoFiltro: string) => {
+    const searchCooperados = useCallback(async (busca: string) => {
         if (busca.trim().length < 2) {
             setResults([]);
             setIsOpen(false);
@@ -70,7 +69,7 @@ const CooperadoSearch = ({
         try {
             const token = localStorage.getItem("auth_token");
             const response = await fetch(
-                `/api/cooperados?busca=${encodeURIComponent(busca)}&tipo=${tipoFiltro}`,
+                `/api/cooperados?busca=${encodeURIComponent(busca)}`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -92,16 +91,6 @@ const CooperadoSearch = ({
         }
     }, []);
 
-    // Re-buscar quando mudar o filtro
-    useEffect(() => {
-        if (query.trim().length >= 2) {
-            const queryInsensitive = query
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "");
-            searchCooperados(queryInsensitive, filtro);
-        }
-    }, [filtro, searchCooperados]);
-
     // Debounce da busca
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
@@ -112,7 +101,7 @@ const CooperadoSearch = ({
             const queryInsensitive = val
                 .normalize("NFD")
                 .replace(/[\u0300-\u036f]/g, "");
-            searchCooperados(queryInsensitive, filtro);
+            searchCooperados(queryInsensitive);
         }, 300);
     };
 
@@ -275,35 +264,6 @@ const CooperadoSearch = ({
         <>
             {/* --- INPUT PRINCIPAL --- */}
             <div ref={containerRef} className={`relative ${className}`}>
-                {/* --- FILTRO PÍLULA --- */}
-                {(!value || disabled === false) && (
-                    <div className="flex bg-white/10 p-1 rounded-lg mb-2">
-                        <button 
-                            type="button"
-                            onClick={() => setFiltro("todos")}
-                            className={`flex-1 text-[11px] py-1.5 rounded-md font-semibold transition-colors
-                                ${filtro === "todos" ? "bg-primary text-white shadow-sm" : "text-white/50 hover:text-white"}`}
-                        >
-                            Todos
-                        </button>
-                        <button 
-                            type="button"
-                            onClick={() => setFiltro("cooperados")}
-                            className={`flex-1 text-[11px] py-1.5 rounded-md font-semibold transition-colors
-                                ${filtro === "cooperados" ? "bg-primary text-white shadow-sm" : "text-white/50 hover:text-white"}`}
-                        >
-                            Cooperados
-                        </button>
-                        <button 
-                            type="button"
-                            onClick={() => setFiltro("terceiros")}
-                            className={`flex-1 text-[11px] py-1.5 rounded-md font-semibold transition-colors
-                                ${filtro === "terceiros" ? "bg-primary text-white shadow-sm" : "text-white/50 hover:text-white"}`}
-                        >
-                            Terceiros
-                        </button>
-                    </div>
-                )}
 
                 <div className="relative" onClick={isMobile ? handleMobileFocus : undefined}>
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

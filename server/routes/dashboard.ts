@@ -25,7 +25,7 @@ router.get(
             const result = db.exec(
                 `SELECT DISTINCT fornecedor
                  FROM users
-                 WHERE fornecedor IS NOT NULL AND fornecedor != ''
+                 WHERE fornecedor IS NOT NULL AND fornecedor != '' AND role != 'admin'
                  ORDER BY fornecedor`
             );
 
@@ -68,7 +68,7 @@ router.get(
             const result = db.exec(
                 `SELECT DISTINCT u.id, u.nome, u.matricula
                  FROM users u
-                 WHERE u.id IN (
+                 WHERE u.role != 'admin' AND u.id IN (
                      SELECT user_id FROM visitas WHERE data_visita >= ? AND data_visita <= ?
                      UNION
                      SELECT user_id FROM planejamento WHERE data_planejada >= ? AND data_planejada <= ?
@@ -124,6 +124,8 @@ router.get(
                 userFilter += " AND user_id IN (SELECT id FROM users WHERE fornecedor = ?)";
                 userParam.push(equipe);
             }
+
+            userFilter += " AND user_id IN (SELECT id FROM users WHERE role != 'admin')";
 
             // Total de visitas planejadas no período
             const planejResult = db.exec(
@@ -217,6 +219,8 @@ router.get(
                 userParam.push(equipe);
             }
 
+            userFilterU += " AND u.role != 'admin'";
+
             // Ranking: consultores com visitas OU apenas planejamento
             const result = db.exec(
                 `SELECT
@@ -248,8 +252,7 @@ router.get(
                     GROUP BY user_id
                 ) p_stats ON u.id = p_stats.user_id
                 WHERE (v_stats.user_id IS NOT NULL OR p_stats.user_id IS NOT NULL)${userFilterU}
-                ORDER BY realizadas DESC, planejadas DESC
-                LIMIT 20`,
+                ORDER BY realizadas DESC, planejadas DESC`,
                 [inicio, fim, inicio, fim, ...userParam]
             );
 
@@ -312,6 +315,8 @@ router.get(
                 userFilter += " AND u.fornecedor = ?";
                 userParam.push(equipe);
             }
+
+            userFilter += " AND u.role != 'admin'";
 
             const result = db.exec(
                 `SELECT 
@@ -396,13 +401,15 @@ router.get(
                 return;
             }
 
-            let userFilter = colaboradorId ? " AND p.user_id = ?" : "";
+            let userFilter = colaboradorId ? " AND u.id = ?" : "";
             let userParam: any[] = colaboradorId ? [parseInt(colaboradorId, 10)] : [];
 
             if (equipe) {
                 userFilter += " AND u.fornecedor = ?";
                 userParam.push(equipe);
             }
+
+            userFilter += " AND u.role != 'admin' AND u.fornecedor IS NOT NULL AND u.fornecedor != ''";
 
             // Buscar todos os planejamentos do período com dados do consultor e cooperado
             const result = db.exec(
@@ -418,11 +425,11 @@ router.get(
                     c.matricula as cooperado_matricula,
                     f.nome as filial_nome,
                     u.fornecedor
-                FROM planejamento p
-                JOIN users u ON p.user_id = u.id
+                FROM users u
+                LEFT JOIN planejamento p ON p.user_id = u.id AND p.data_planejada >= ? AND p.data_planejada <= ?
                 LEFT JOIN cooperados c ON p.cooperado_id = c.id
                 LEFT JOIN filiais f ON c.filial_id = f.id
-                WHERE p.data_planejada >= ? AND p.data_planejada <= ?${userFilter}
+                WHERE 1=1 ${userFilter}
                 ORDER BY u.nome, p.data_planejada`,
                 [inicio, fim, ...userParam]
             );
@@ -475,17 +482,237 @@ router.get(
 
                 const consultor = consultoresMap.get(userId)!;
                 let diaSet = consultor.planejamentos.find(p => p.date === dataPlanejada);
-                if (!diaSet) {
+                if (!diaSet && dataPlanejada) {
                     diaSet = { date: dataPlanejada, empresas: [] };
                     consultor.planejamentos.push(diaSet);
                 }
-                diaSet.empresas.push(descricao);
+                
+                if (diaSet && descricao) {
+                    diaSet.empresas.push(descricao);
+                }
             }
 
             res.json(Array.from(consultoresMap.values()));
         } catch (error) {
             console.error("Erro ao gerar planejamento semanal:", error);
             res.status(500).json({ error: "Erro interno do servidor" });
+        }
+    }
+);
+
+/**
+ * GET /api/dashboard/cobertura
+ */
+router.get(
+    "/cobertura",
+    authMiddleware,
+    (req: Request, res: Response): void => {
+        try {
+            const db = getDb();
+            const filial_id = req.query.filial_id as string | undefined;
+
+            let filter = filial_id ? " WHERE c.filial_id = ?" : "";
+            let params = filial_id ? [parseInt(filial_id, 10)] : [];
+
+            const result = db.exec(
+                `SELECT 
+                    c.id, 
+                    c.nome, 
+                    c.matricula, 
+                    f.nome as filial_nome, 
+                    MAX(v.data_visita) as ultima_visita 
+                 FROM cooperados c 
+                 LEFT JOIN filiais f ON c.filial_id = f.id 
+                 LEFT JOIN visitas v ON v.cooperado_id = c.id 
+                 ${filter}
+                 GROUP BY c.id 
+                 ORDER BY ultima_visita ASC NULLS FIRST`,
+                params
+            );
+
+            if (result.length === 0) {
+                res.json([]);
+                return;
+            }
+
+            const cobertura = result[0].values.map((row) => ({
+                id: row[0],
+                nome: row[1],
+                matricula: row[2],
+                filial_nome: row[3],
+                ultima_visita: row[4]
+            }));
+
+            res.json(cobertura);
+        } catch (error) {
+            console.error("Erro ao carregar cobertura:", error);
+            res.status(500).json({ error: "Erro interno" });
+        }
+    }
+);
+
+/**
+ * GET /api/dashboard/fitossanitario
+ * Relatório fitossanitário enriquecido:
+ * - resumo executivo (totais, filial mais crítica, ocorrência mais frequente)
+ * - heatmap: ocorrências por filial (top 15 ou filial filtrada)
+ * - top_doencas / top_pragas: rankings separados
+ * - filiais_com_dados: lista de filiais para o filtro dropdown
+ */
+
+const LISTA_DOENCAS = [
+    "Ferrugem", "Cercosporiose", "Mancha de Phoma", "Antracnose",
+    "Rizoctonia", "Mancha de Ascochyta", "Nematoides (Meloidogyne)"
+];
+
+const LISTA_PRAGAS = [
+    "Bicho-Mineiro", "Broca-do-Café", "Ácaro-Vermelho", "Cigarra",
+    "Cochonilha", "Lagarta-dos-Cafezais", "Mosca-das-Frutas"
+];
+
+router.get(
+    "/fitossanitario",
+    authMiddleware,
+    (req: Request, res: Response): void => {
+        try {
+            const db = getDb();
+            const inicio = req.query.inicio as string;
+            const fim = req.query.fim as string;
+            const equipe = req.query.equipe as string | undefined;
+            const colaboradorId = req.query.colaborador_id as string | undefined;
+            const filialFiltro = req.query.filial as string | undefined;
+
+            if (!inicio || !fim) {
+                res.status(400).json({ error: "Parâmetros 'inicio' e 'fim' obrigatórios" });
+                return;
+            }
+
+            let joinExtra = "";
+            let filter = " WHERE v.data_visita >= ? AND v.data_visita <= ? AND v.doencas_pragas IS NOT NULL AND v.doencas_pragas != '[]'";
+            let params: any[] = [inicio, fim];
+
+            if (equipe) {
+                joinExtra += " JOIN users u ON v.user_id = u.id";
+                filter += " AND u.fornecedor = ?";
+                params.push(equipe);
+            }
+
+            if (colaboradorId) {
+                if (!equipe) {
+                    // users not yet joined
+                }
+                filter += " AND v.user_id = ?";
+                params.push(parseInt(colaboradorId, 10));
+            }
+
+            const result = db.exec(
+                `SELECT v.doencas_pragas, COALESCE(f.nome, 'Sem Filial') as filial_nome
+                 FROM visitas v
+                 LEFT JOIN cooperados c ON v.cooperado_id = c.id
+                 LEFT JOIN filiais f ON c.filial_id = f.id
+                 ${joinExtra}
+                 ${filter}`,
+                params
+            );
+
+            if (result.length === 0) {
+                res.json({
+                    resumo: { total_relatos: 0, total_doencas: 0, total_pragas: 0, filial_mais_critica: "-", ocorrencia_mais_frequente: "-" },
+                    heatmap: [],
+                    top_doencas: [],
+                    top_pragas: [],
+                    filiais_com_dados: []
+                });
+                return;
+            }
+
+            // Aggregate: per filial, per ocorrência
+            const filialMap = new Map<string, Record<string, number>>();
+            const globalDoencas: Record<string, number> = {};
+            const globalPragas: Record<string, number> = {};
+            let totalRelatos = 0;
+
+            result[0].values.forEach(row => {
+                try {
+                    const items = JSON.parse(row[0] as string);
+                    const filial = row[1] as string;
+                    if (!Array.isArray(items) || items.length === 0) return;
+
+                    if (!filialMap.has(filial)) {
+                        filialMap.set(filial, {});
+                    }
+                    const filialData = filialMap.get(filial)!;
+
+                    items.forEach((item: any) => {
+                        const nome = typeof item === 'object' && item.nome ? item.nome : (typeof item === 'string' ? item : null);
+                        if (!nome) return;
+
+                        filialData[nome] = (filialData[nome] || 0) + 1;
+                        totalRelatos++;
+
+                        if (LISTA_DOENCAS.includes(nome)) {
+                            globalDoencas[nome] = (globalDoencas[nome] || 0) + 1;
+                        } else if (LISTA_PRAGAS.includes(nome)) {
+                            globalPragas[nome] = (globalPragas[nome] || 0) + 1;
+                        } else {
+                            // Unknown items go to pragas by default
+                            globalPragas[nome] = (globalPragas[nome] || 0) + 1;
+                        }
+                    });
+                } catch (e) { }
+            });
+
+            // Build heatmap rows
+            const heatmapAll = Array.from(filialMap.entries()).map(([filial, ocorrencias]) => {
+                const total = Object.values(ocorrencias).reduce((a, b) => a + b, 0);
+                return { filial, ocorrencias, total };
+            }).sort((a, b) => b.total - a.total);
+
+            // Filter heatmap: specific filial or top 15
+            let heatmap;
+            if (filialFiltro && filialFiltro !== "todas") {
+                const found = heatmapAll.find(h => h.filial === filialFiltro);
+                heatmap = found ? [found] : [];
+            } else {
+                heatmap = heatmapAll.slice(0, 15);
+            }
+
+            // Rankings
+            const topDoencas = Object.entries(globalDoencas)
+                .map(([nome, total]) => ({ nome, total }))
+                .sort((a, b) => b.total - a.total);
+
+            const topPragas = Object.entries(globalPragas)
+                .map(([nome, total]) => ({ nome, total }))
+                .sort((a, b) => b.total - a.total);
+
+            // Executive summary
+            const totalDoencas = topDoencas.reduce((sum, d) => sum + d.total, 0);
+            const totalPragas = topPragas.reduce((sum, p) => sum + p.total, 0);
+            const filialMaisCritica = heatmapAll.length > 0 ? heatmapAll[0].filial : "-";
+
+            const allOcorrencias = [...topDoencas, ...topPragas].sort((a, b) => b.total - a.total);
+            const ocorrenciaMaisFrequente = allOcorrencias.length > 0 ? allOcorrencias[0].nome : "-";
+
+            // Filial list for dropdown filter
+            const filiaisComDados = heatmapAll.map(h => h.filial);
+
+            res.json({
+                resumo: {
+                    total_relatos: totalRelatos,
+                    total_doencas: totalDoencas,
+                    total_pragas: totalPragas,
+                    filial_mais_critica: filialMaisCritica,
+                    ocorrencia_mais_frequente: ocorrenciaMaisFrequente,
+                },
+                heatmap,
+                top_doencas: topDoencas,
+                top_pragas: topPragas,
+                filiais_com_dados: filiaisComDados,
+            });
+        } catch (error) {
+            console.error("Erro no relatorio fitossanitario:", error);
+            res.status(500).json({ error: "Erro interno" });
         }
     }
 );

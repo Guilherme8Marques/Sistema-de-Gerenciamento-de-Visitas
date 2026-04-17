@@ -230,6 +230,7 @@ function createTables(): void {
   `);
   
   try { db.run("ALTER TABLE cooperados ADD COLUMN tipo TEXT DEFAULT 'Cooperado'"); } catch { }
+  try { db.run("ALTER TABLE cooperados ADD COLUMN ativo INTEGER DEFAULT 1"); } catch { }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS propriedades (

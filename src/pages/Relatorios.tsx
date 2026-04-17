@@ -19,9 +19,15 @@ import {
     Eye,
     Search,
     X,
+    ShieldAlert,
+    TrendingUp,
+    BarChart3,
+    Leaf,
+    Bug
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Cell, LabelList, PieChart, Pie, Legend } from "recharts";
 import iconRelatorios from "@/assets/Relatórios Gerenciais.png";
 
 // ShadCN UI Components
@@ -77,6 +83,41 @@ interface HistoricoItem {
     tipo_moeda: string | null;
     valor: string | null;
     canal: string | null;
+}
+
+interface CoberturaItem {
+    id: number;
+    nome: string;
+    matricula: string;
+    filial_nome: string;
+    ultima_visita: string | null;
+}
+
+interface FitossanitarioResumo {
+    total_relatos: number;
+    total_doencas: number;
+    total_pragas: number;
+    filial_mais_critica: string;
+    ocorrencia_mais_frequente: string;
+}
+
+interface FitossanitarioHeatmapRow {
+    filial: string;
+    ocorrencias: Record<string, number>;
+    total: number;
+}
+
+interface FitossanitarioRankItem {
+    nome: string;
+    total: number;
+}
+
+interface FitossanitarioData {
+    resumo: FitossanitarioResumo;
+    heatmap: FitossanitarioHeatmapRow[];
+    top_doencas: FitossanitarioRankItem[];
+    top_pragas: FitossanitarioRankItem[];
+    filiais_com_dados: string[];
 }
 
 interface ColaboradorOption {
@@ -138,10 +179,13 @@ export default function Relatorios() {
 
     // Planning data
     const [consultoresPlan, setConsultoresPlan] = useState<Consultor[]>([]);
+    const [cobertura, setCobertura] = useState<CoberturaItem[]>([]);
+    const [fitossanitario, setFitossanitario] = useState<FitossanitarioData | null>(null);
+    const [filialSanidade, setFilialSanidade] = useState<string>("todas");
     const [carregando, setCarregando] = useState(false);
 
-    // UI state: 3 abas
-    const [abaAtiva, setAbaAtiva] = useState<"executiva" | "planejamento" | "resultados">("executiva");
+    // UI state: 4 abas
+    const [abaAtiva, setAbaAtiva] = useState<"executiva" | "planejamento" | "resultados" | "sanidade">("executiva");
 
     /* ────────────────────────────────────────────
        Colaborador Autocomplete: Click-outside
@@ -317,22 +361,26 @@ export default function Relatorios() {
             const equipeParam = equipeSelecionada !== "todas" ? `&equipe=${equipeSelecionada}` : "";
             const queryParams = `?inicio=${inicio}&fim=${fim}${colabParam}${equipeParam}`;
 
-            const [resumoResp, rankingResp, historicoResp, planResp, colabResp, equipesResp] = await Promise.all([
+            const [resumoResp, rankingResp, historicoResp, planResp, colabResp, equipesResp, coberturaResp, fitoResp] = await Promise.all([
                 fetch(`/api/dashboard/resumo${queryParams}`, { headers }),
                 fetch(`/api/dashboard/ranking${queryParams}`, { headers }),
                 fetch(`/api/dashboard/historico${queryParams}`, { headers }),
                 fetch(`/api/dashboard/planejamento-semanal${queryParams}`, { headers }),
                 fetch(`/api/dashboard/colaboradores?inicio=${inicio}&fim=${fim}${equipeParam}`, { headers }),
                 fetch(`/api/dashboard/equipes?inicio=${inicio}&fim=${fim}`, { headers }),
+                fetch(`/api/dashboard/cobertura`, { headers }),
+                fetch(`/api/dashboard/fitossanitario${queryParams}${filialSanidade !== "todas" ? `&filial=${encodeURIComponent(filialSanidade)}` : ""}`, { headers }),
             ]);
 
-            const [resumoData, rankingData, historicoData, planData, colabData, equipesData] = await Promise.all([
+            const [resumoData, rankingData, historicoData, planData, colabData, equipesData, coberturaData, fitoData] = await Promise.all([
                 resumoResp.ok ? resumoResp.json() : null,
                 rankingResp.ok ? rankingResp.json() : [],
                 historicoResp.ok ? historicoResp.json() : [],
                 planResp.ok ? planResp.json() : [],
                 colabResp.ok ? colabResp.json() : [],
                 equipesResp.ok ? equipesResp.json() : [],
+                coberturaResp.ok ? coberturaResp.json() : [],
+                fitoResp.ok ? fitoResp.json() : null,
             ]);
 
             setResumo(resumoData);
@@ -341,6 +389,8 @@ export default function Relatorios() {
             setConsultoresPlan(planData);
             setColaboradoresLista(colabData);
             setEquipesLista(equipesData);
+            setCobertura(coberturaData);
+            setFitossanitario(fitoData);
 
         } catch (error) {
             console.error("Erro ao carregar dados dos relatórios", error);
@@ -348,7 +398,7 @@ export default function Relatorios() {
         } finally {
             setCarregando(false);
         }
-    }, [periodo, colaboradorSelecionado, equipeSelecionada, navigate]);
+    }, [periodo, colaboradorSelecionado, equipeSelecionada, filialSanidade, navigate]);
 
     useEffect(() => {
         carregarDados();
@@ -405,20 +455,29 @@ export default function Relatorios() {
         const headers = ["Colaborador", "Matrícula", "Data", "Dia da Semana", "Cooperado"];
 
         consultoresPlan
-            .filter(c => c.planejamentos.length > 0)
             .forEach(c => {
-                diasUteis.forEach((d) => {
-                    const empresas = getVisitasDia(c, d.dateKey);
-                    empresas.forEach(empresa => {
-                        dataRows.push({
-                            "Colaborador": c.nome,
-                            "Matrícula": c.matricula,
-                            "Data": d.dateKey.split('-').reverse().join('/'),
-                            "Dia da Semana": d.weekday,
-                            "Cooperado": empresa
+                if (!c.planejamentos || c.planejamentos.length === 0) {
+                    dataRows.push({
+                        "Colaborador": c.nome,
+                        "Matrícula": c.matricula,
+                        "Data": "-",
+                        "Dia da Semana": "-",
+                        "Cooperado": "NADA PLANEJADO"
+                    });
+                } else {
+                    diasUteis.forEach((d) => {
+                        const empresas = getVisitasDia(c, d.dateKey);
+                        empresas.forEach(empresa => {
+                            dataRows.push({
+                                "Colaborador": c.nome,
+                                "Matrícula": c.matricula,
+                                "Data": d.dateKey.split('-').reverse().join('/'),
+                                "Dia da Semana": d.weekday,
+                                "Cooperado": empresa
+                            });
                         });
                     });
-                });
+                }
             });
 
         const ws = XLSX.utils.json_to_sheet(dataRows, { header: headers });
@@ -545,6 +604,7 @@ export default function Relatorios() {
         { key: "executiva" as const, label: "Visão Executiva", icon: Eye },
         { key: "planejamento" as const, label: "Planejamento da Semana", icon: ClipboardList },
         { key: "resultados" as const, label: "Resultados e Registros", icon: ListFilter },
+        { key: "sanidade" as const, label: "Sanidade", icon: ShieldAlert },
     ];
 
     return (
@@ -811,8 +871,15 @@ export default function Relatorios() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {Array.isArray(consultoresPlan) && consultoresPlan
-                                                    .filter((c) => c && Array.isArray(c.planejamentos) && c.planejamentos.length > 0)
+                                                {Array.isArray(consultoresPlan) && [...consultoresPlan]
+                                                    .filter((c) => c)
+                                                    .sort((a, b) => {
+                                                        const aEmpty = !a.planejamentos || a.planejamentos.length === 0;
+                                                        const bEmpty = !b.planejamentos || b.planejamentos.length === 0;
+                                                        if (aEmpty && !bEmpty) return 1;
+                                                        if (!aEmpty && bEmpty) return -1;
+                                                        return a.nome.localeCompare(b.nome);
+                                                    })
                                                     .map((consultor, idx) => {
                                                         let totalConsultor = 0;
 
@@ -827,28 +894,37 @@ export default function Relatorios() {
                                                                 <td className="px-4 py-3 align-top">
                                                                     <span className="text-xs font-semibold px-2 py-1 bg-white/5 border border-white/10 rounded-md text-white/80">{consultor.fornecedor}</span>
                                                                 </td>
-                                                                {diasUteis.map((d) => {
-                                                                    const visitas = getVisitasDia(consultor, d.dateKey);
-                                                                    totalConsultor += visitas.length;
-                                                                    return (
-                                                                        <td key={d.dateKey} className="px-4 py-3 align-top min-w-[120px]">
-                                                                            {visitas.length > 0 ? (
-                                                                                <div className="space-y-1">
-                                                                                    {visitas.map((v, i) => (
-                                                                                        <div key={i} className="text-[10px] leading-tight text-white/90 bg-white/5 border border-white/10 p-2 rounded shadow-sm whitespace-normal break-words font-medium hover:bg-white/10 transition-all">
-                                                                                            {v}
+                                                                {(!consultor.planejamentos || consultor.planejamentos.length === 0) ? (
+                                                                    <td colSpan={diasUteis.length + 1} className="px-4 py-3 align-middle text-center relative overflow-hidden">
+                                                                        <div className="absolute inset-0 bg-red-500/5 mix-blend-overlay pointer-events-none"></div>
+                                                                        <span className="text-xs font-bold text-red-500 bg-red-500/10 px-3 py-1 rounded border border-red-500/20 relative z-10 w-fit inline-block">NADA PLANEJADO</span>
+                                                                    </td>
+                                                                ) : (
+                                                                    <>
+                                                                        {diasUteis.map((d) => {
+                                                                            const visitas = getVisitasDia(consultor, d.dateKey);
+                                                                            totalConsultor += visitas.length;
+                                                                            return (
+                                                                                <td key={d.dateKey} className="px-4 py-3 align-top min-w-[120px]">
+                                                                                    {visitas.length > 0 ? (
+                                                                                        <div className="space-y-1">
+                                                                                            {visitas.map((v, i) => (
+                                                                                                <div key={i} className="text-[10px] leading-tight text-white/90 bg-white/5 border border-white/10 p-2 rounded shadow-sm whitespace-normal break-words font-medium hover:bg-white/10 transition-all">
+                                                                                                    {v}
+                                                                                                </div>
+                                                                                            ))}
                                                                                         </div>
-                                                                                    ))}
-                                                                                </div>
-                                                                            ) : null}
+                                                                                    ) : null}
+                                                                                </td>
+                                                                            );
+                                                                        })}
+                                                                        <td className="px-4 py-3 text-center align-middle">
+                                                                            <span className="text-xs font-extrabold text-gold bg-gold/10 px-2 py-1 rounded border border-gold/20">
+                                                                                {totalConsultor}
+                                                                            </span>
                                                                         </td>
-                                                                    );
-                                                                })}
-                                                                <td className="px-4 py-3 text-center align-middle">
-                                                                    <span className="text-xs font-extrabold text-gold bg-gold/10 px-2 py-1 rounded border border-gold/20">
-                                                                        {totalConsultor}
-                                                                    </span>
-                                                                </td>
+                                                                    </>
+                                                                )}
                                                             </tr>
                                                         );
                                                     })}
@@ -863,31 +939,83 @@ export default function Relatorios() {
                             ABA 3: RESULTADOS E REGISTROS
                            ═══════════════════════════════════════ */}
                         {abaAtiva === "resultados" && (
-                            <div className="glass-card-strong rounded-xl overflow-hidden animate-fade-in flex flex-col items-stretch mt-2 shadow-lg border border-white/10">
-                                <div className="bg-primary px-5 py-4 flex items-center justify-between border-b border-white/10">
-                                    <div className="flex items-center gap-2">
-                                        <ListFilter className="h-5 w-5 text-primary-foreground hidden md:block" />
-                                        <span className="text-base font-bold text-primary-foreground font-display hidden sm:inline">Resultados</span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        {renderFiltrosTabela()}
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-8 text-xs font-bold border-white/20 text-white bg-white/5 hover:bg-white/10 hidden md:flex"
-                                            onClick={exportHistorico}
-                                            disabled={historico.length === 0}
-                                        >
-                                            <Download className="h-3.5 w-3.5 mr-2" />
-                                            Exportar
-                                        </Button>
-                                    </div>
+                            <div className="flex flex-col gap-6 animate-fade-in mt-2">
+                                {/* KPIs da Aba de Resultados - FORA DA TABELA */}
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {(() => {
+                                        let totalAtendimentos = 0;
+                                        let totalAvaliacoes = 0;
+                                        let totalNegociacoes = 0;
+                                        let totalReais = 0;
+                                        let totalSacas = 0;
+
+                                        historico.forEach(item => {
+                                            if (item.resultado === 'Atendimento') totalAtendimentos++;
+                                            if (item.resultado === 'Avaliação do Campo Experimental') totalAvaliacoes++;
+                                            if (item.resultado === 'Negociação') {
+                                                totalNegociacoes++;
+                                                if (item.valor) {
+                                                    // Tratar valor caso possua vírgulas em vez de pontos
+                                                    const cleanNum = parseFloat(item.valor.replace(/\./g, "").replace(",", "."));
+                                                    if (!isNaN(cleanNum)) {
+                                                        if (item.tipo_moeda === 'R$') totalReais += cleanNum;
+                                                        if (item.tipo_moeda === 'Sacas') totalSacas += cleanNum;
+                                                    }
+                                                }
+                                            }
+                                        });
+
+                                        return (
+                                            <>
+                                                <div className="glass-card-strong rounded-xl p-5 shadow-lg hover:scale-[1.02] transition-transform flex flex-col justify-center">
+                                                    <h3 className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">Atendimentos Registrados</h3>
+                                                    <p className="text-2xl font-extrabold text-blue-400">{totalAtendimentos}</p>
+                                                </div>
+                                                <div className="glass-card-strong rounded-xl p-5 shadow-lg hover:scale-[1.02] transition-transform flex flex-col justify-center">
+                                                    <h3 className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-1">Avaliação do Campo Exp.</h3>
+                                                    <p className="text-2xl font-extrabold text-purple-400">{totalAvaliacoes}</p>
+                                                </div>
+                                                <div className="glass-card-strong rounded-xl p-5 shadow-lg hover:scale-[1.02] transition-transform flex flex-col justify-center">
+                                                    <h3 className="text-[10px] font-bold text-gold uppercase tracking-wider mb-1">Negociações Concluídas</h3>
+                                                    <p className="text-2xl font-extrabold text-gold">{totalNegociacoes}</p>
+                                                </div>
+                                                <div className="glass-card-strong rounded-xl p-5 shadow-lg hover:scale-[1.02] transition-transform flex flex-col justify-center">
+                                                    <h3 className="text-[10px] font-bold text-green-400 uppercase tracking-wider mb-1">Valores Faturados (Soma)</h3>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-green-400">R$ {totalReais.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                        <span className="text-sm font-bold text-yellow-600">{totalSacas.toLocaleString('pt-BR')} sc</span>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
 
-                                {historico.length === 0 ? (
-                                    <div className="px-5 py-12 text-center text-white/50 text-sm">
-                                        Nenhuma visita registrada com detalhes neste período.
+                                <div className="glass-card-strong rounded-xl overflow-hidden flex flex-col items-stretch shadow-lg border border-white/10">
+                                    <div className="bg-primary px-5 py-4 flex items-center justify-between border-b border-white/10">
+                                        <div className="flex items-center gap-2">
+                                            <ListFilter className="h-5 w-5 text-primary-foreground hidden md:block" />
+                                            <span className="text-base font-bold text-primary-foreground font-display hidden sm:inline">Vistorias Realizadas</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            {renderFiltrosTabela()}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-xs font-bold border-white/20 text-white bg-white/5 hover:bg-white/10 hidden md:flex"
+                                                onClick={exportHistorico}
+                                                disabled={historico.length === 0}
+                                            >
+                                                <Download className="h-3.5 w-3.5 mr-2" />
+                                                Exportar
+                                            </Button>
+                                        </div>
                                     </div>
+
+                                    {historico.length === 0 ? (
+                                        <div className="px-5 py-12 text-center text-white/50 text-sm">
+                                            Nenhuma visita registrada com detalhes neste período.
+                                        </div>
                                 ) : (
                                     <div className="overflow-x-auto w-full">
                                         <table className="w-full text-left border-separate border-spacing-0 table-fixed min-w-[1100px]">
@@ -922,12 +1050,12 @@ export default function Relatorios() {
                                                             {item.nome_cooperado}
                                                         </td>
                                                         <td className="px-4 py-3 text-center">
-                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${item.resultado === 'Negociação' ? "bg-gold/20 text-gold border-gold/30" :
+                                                            <span className={`inline-block px-3 py-1 rounded-full text-[10px] whitespace-nowrap font-bold border ${item.resultado === 'Negociação' ? "bg-gold/20 text-gold border-gold/30" :
                                                                 item.resultado === 'Atendimento' ? "bg-blue-400/20 text-blue-400 border-blue-400/30" :
                                                                     item.resultado === 'Avaliação do Campo Experimental' ? "bg-purple-400/20 text-purple-400 border-purple-400/30" :
                                                                         "bg-green-400/20 text-green-400 border-green-400/30"
                                                                 }`}>
-                                                                {item.resultado}
+                                                                {item.resultado === 'Avaliação do Campo Experimental' ? 'Avaliação do Campo Exp.' : item.resultado}
                                                             </span>
                                                         </td>
                                                         <td className="px-4 py-3 text-center text-xs text-white/60">
@@ -947,7 +1075,207 @@ export default function Relatorios() {
                                     </div>
                                 )}
                             </div>
-                        )}
+                        </div>
+                    )}
+
+
+
+                        {/* ═══════════════════════════════════════
+                            ABA 4: SANIDADE DO CAMPO — RELATÓRIO FITOSSANITÁRIO
+                           ═══════════════════════════════════════ */}
+                        {abaAtiva === "sanidade" && (() => {
+                            // Compute dynamic top columns (most frequent occurrences globally)
+                            const allOcorrencias = [...(fitossanitario?.top_doencas ?? []), ...(fitossanitario?.top_pragas ?? [])]
+                                .sort((a, b) => b.total - a.total)
+                                .slice(0, 6);
+                            const topColumnNames = allOcorrencias.map(o => o.nome);
+
+                            // Heatmap color gradient function (vivid green→yellow→orange→red)
+                            const getHeatColor = (val: number, maxVal: number) => {
+                                if (val === 0) return { bg: "transparent", text: "text-white/15" };
+                                const ratio = Math.min(val / Math.max(maxVal, 1), 1);
+                                if (ratio <= 0.25) return { bg: "rgba(34, 197, 94, 0.35)", text: "text-green-200 font-bold" };
+                                if (ratio <= 0.5) return { bg: "rgba(234, 179, 8, 0.4)", text: "text-yellow-200 font-bold" };
+                                if (ratio <= 0.75) return { bg: "rgba(249, 115, 22, 0.45)", text: "text-orange-200 font-bold" };
+                                return { bg: "rgba(239, 68, 68, 0.5)", text: "text-red-200 font-extrabold" };
+                            };
+
+                            // Global max for color scaling
+                            const globalMax = fitossanitario?.heatmap?.reduce((max, row) => {
+                                const rowMax = Math.max(...Object.values(row.ocorrencias), 0);
+                                return Math.max(max, rowMax);
+                            }, 0) ?? 1;
+
+                            // Combined ranking list
+                            const rankingCombinado = allOcorrencias.slice(0, 8);
+
+                            // Heatmap color scale constants for legend
+                            const legendColors = [
+                                "rgba(34, 197, 94, 0.35)",
+                                "rgba(34, 197, 94, 0.5)",
+                                "rgba(163, 230, 53, 0.5)",
+                                "rgba(234, 179, 8, 0.45)",
+                                "rgba(251, 191, 36, 0.5)",
+                                "rgba(249, 115, 22, 0.45)",
+                                "rgba(239, 68, 68, 0.4)",
+                                "rgba(239, 68, 68, 0.55)",
+                            ];
+
+                            // Legend color for ranking items
+                            const rankColors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#06b6d4"];
+
+                            return (
+                            <div className="flex flex-col gap-5 animate-fade-in">
+
+                                {/* Title bar */}
+                                <div className="glass-card-strong rounded-xl shadow-lg border border-white/10 px-6 py-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h2 className="text-lg font-display font-bold text-primary-foreground flex items-center gap-2">
+                                                <ShieldAlert className="h-5 w-5 text-red-400" />
+                                                Relatório Fitossanitário <span className="text-white/40 font-normal text-sm">(Mapa de Calor de Pragas/Doenças)</span>
+                                            </h2>
+                                            <p className="text-xs text-white/40 mt-1">Visão das pragas e doenças mais relatadas no período e as filiais/regiões mais afetadas</p>
+                                        </div>
+                                        <Select value={filialSanidade} onValueChange={setFilialSanidade}>
+                                            <SelectTrigger className="w-[160px] h-8 text-xs bg-black/20 text-white font-bold border-white/10 shadow-sm rounded-full">
+                                                <SelectValue placeholder="Filial" />
+                                            </SelectTrigger>
+                                            <SelectContent className="glass-card-strong border-white/10 max-h-[300px]">
+                                                <SelectItem value="todas" className="text-primary-foreground text-xs">Top 15 Filiais</SelectItem>
+                                                {(fitossanitario?.filiais_com_dados ?? []).map(f => (
+                                                    <SelectItem key={f} value={f} className="text-primary-foreground text-xs">{f}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {/* Main content: Heatmap + Sidebar */}
+                                <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+
+                                    {/* LEFT: Heatmap Card */}
+                                    <div className="glass-card-strong rounded-xl shadow-lg overflow-hidden border border-white/10">
+                                        <div className="px-5 py-3 bg-primary border-b border-white/10 flex items-center gap-2">
+                                            <BarChart3 className="h-4 w-4 text-primary-foreground" />
+                                            <span className="text-sm font-bold text-primary-foreground font-display">Relatório Fitossanitário</span>
+                                            <span className="text-xs text-white/40">(Mapa de Calor de Pragas/Doenças)</span>
+                                        </div>
+
+                                        {!fitossanitario || fitossanitario.heatmap.length === 0 ? (
+                                            <div className="px-5 py-16 text-center text-white/50 text-sm">Nenhum registro de pragas/doenças neste período.</div>
+                                        ) : (
+                                            <div className="p-4">
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full border-separate border-spacing-[3px]">
+                                                        <thead>
+                                                            <tr>
+                                                                <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white/40 w-40"></th>
+                                                                {topColumnNames.map(name => (
+                                                                    <th key={name} className="px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-primary-foreground min-w-[90px]">
+                                                                        {name.length > 14 ? name.slice(0, 14) + '…' : name}
+                                                                    </th>
+                                                                ))}
+                                                                <th className="px-3 py-2 text-center text-[10px] font-extrabold uppercase tracking-wider text-primary-foreground">Total</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {fitossanitario.heatmap.map((row) => (
+                                                                <tr key={row.filial}>
+                                                                    <td className="px-3 py-2 text-xs font-semibold text-white/80 truncate max-w-[180px] border-r border-white/5" title={row.filial}>
+                                                                        {row.filial}
+                                                                    </td>
+                                                                    {topColumnNames.map(colName => {
+                                                                        const val = row.ocorrencias[colName] || 0;
+                                                                        const colors = getHeatColor(val, globalMax);
+                                                                        return (
+                                                                            <td
+                                                                                key={colName}
+                                                                                className={`px-2 py-2 text-center text-sm rounded-md ${colors.text}`}
+                                                                                style={{ backgroundColor: colors.bg }}
+                                                                            >
+                                                                                {val > 0 ? val : <span className="text-white/10">—</span>}
+                                                                            </td>
+                                                                        );
+                                                                    })}
+                                                                    <td className="px-3 py-2 text-center text-sm font-extrabold text-primary-foreground">
+                                                                        {row.total}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                {/* Color Legend */}
+                                                <div className="flex items-center justify-center gap-2 mt-4 pt-3 border-t border-white/5">
+                                                    <span className="text-[10px] text-white/40 font-bold">Baixo</span>
+                                                    <div className="flex gap-0.5">
+                                                        {legendColors.map((c, i) => (
+                                                            <div key={i} className="w-5 h-3 rounded-sm" style={{ backgroundColor: c }} />
+                                                        ))}
+                                                    </div>
+                                                    <span className="text-[10px] text-white/40 font-bold">Alto</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* RIGHT: Sidebar with KPI + Rankings */}
+                                    <div className="flex flex-col gap-5">
+
+                                        {/* KPI: Total de Relatos */}
+                                        <div className="glass-card-strong rounded-xl shadow-lg border border-white/10 p-5">
+                                            <div className="flex items-baseline justify-between">
+                                                <span className="text-sm font-bold text-primary-foreground font-display">Total de Relatos:</span>
+                                                <span className="text-3xl font-display font-extrabold text-primary-foreground ml-3">{fitossanitario?.resumo?.total_relatos ?? 0}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Ranking: Principais Pragas/Doenças */}
+                                        <div className="glass-card-strong rounded-xl shadow-lg overflow-hidden border border-white/10">
+                                            <div className="px-5 py-3 bg-primary/50 border-b border-white/10">
+                                                <h3 className="text-sm font-bold text-primary-foreground font-display">Principais Pragas/Doenças</h3>
+                                            </div>
+                                            <div className="p-4 space-y-3">
+                                                {rankingCombinado.length === 0 ? (
+                                                    <p className="text-xs text-white/40 text-center py-4">Nenhuma ocorrência registrada.</p>
+                                                ) : (
+                                                    rankingCombinado.map((item, i) => (
+                                                        <div key={item.nome} className="flex items-center gap-3">
+                                                            <div className="w-3.5 h-3.5 rounded-sm shrink-0" style={{ backgroundColor: rankColors[i % rankColors.length] }} />
+                                                            <span className="text-sm font-semibold text-white/90 flex-1 truncate">{item.nome}</span>
+                                                            <span className="text-sm font-extrabold text-primary-foreground">{item.total}</span>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Footer KPI */}
+                                        <div className="glass-card-strong rounded-xl shadow-lg border border-white/10 p-4 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <ShieldAlert className="h-4 w-4 text-white/40" />
+                                                <span className="text-xs font-bold text-white/50">Total de Relatos:</span>
+                                            </div>
+                                            <span className="text-lg font-extrabold text-primary-foreground">{fitossanitario?.resumo?.total_relatos ?? 0}</span>
+                                        </div>
+
+                                        {/* Color Legend (sidebar) */}
+                                        <div className="flex items-center justify-center gap-2">
+                                            <span className="text-[10px] text-white/40 font-bold">Baixo</span>
+                                            <div className="flex gap-0.5">
+                                                {legendColors.map((c, i) => (
+                                                    <div key={i} className="w-4 h-2.5 rounded-sm" style={{ backgroundColor: c }} />
+                                                ))}
+                                            </div>
+                                            <span className="text-[10px] text-white/40 font-bold">Alto</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            );
+                        })()}
                     </>
                 )}
             </main>

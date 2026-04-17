@@ -13,17 +13,7 @@ router.get("/", (req: Request, res: Response): void => {
     try {
         const db = getDb();
         const busca = (req.query.busca as string) || "";
-        const tipoFiltro = (req.query.tipo as string) || "todos";
-
         let result;
-        
-        let tipoCondition = "";
-        let tipoBinding: any[] = [];
-        if (tipoFiltro === "cooperados") {
-            tipoCondition = "AND c.tipo = 'Cooperado'";
-        } else if (tipoFiltro === "terceiros") {
-            tipoCondition = "AND c.tipo = 'Terceiro'";
-        }
 
         if (busca.trim()) {
             const buscaNormalizada = busca.trim()
@@ -72,7 +62,7 @@ router.get("/", (req: Request, res: Response): void => {
                 SELECT c.id, c.nome, c.matricula, f.id as filial_id, f.nome as filial_nome, f.cidade
                 FROM cooperados c
                 JOIN filiais f ON c.filial_id = f.id
-                WHERE ((${nomeConditions}) OR c.matricula LIKE ?) ${tipoCondition}
+                WHERE c.ativo = 1 AND ((${nomeConditions}) OR c.matricula LIKE ?)
                 ORDER BY 
                     CASE 
                         WHEN c.matricula = ? THEN 0
@@ -94,7 +84,7 @@ router.get("/", (req: Request, res: Response): void => {
                 SELECT c.id, c.nome, c.matricula, f.id as filial_id, f.nome as filial_nome, f.cidade
                 FROM cooperados c
                 JOIN filiais f ON c.filial_id = f.id
-                WHERE 1=1 ${tipoCondition}
+                WHERE c.ativo = 1
                 ORDER BY c.nome
                 LIMIT 20
             `);
